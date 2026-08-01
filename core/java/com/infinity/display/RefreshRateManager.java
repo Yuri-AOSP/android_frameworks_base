@@ -10,7 +10,7 @@ import android.content.Context;
 import android.os.RemoteException;
 import android.util.Slog;
 
-import com.android.internal.util.infinity.Utils;
+import com.android.internal.util.vie.Utils;
 import com.android.internal.util.neoteric.DisplayRefreshRateHelper;
 
 /** @hide */

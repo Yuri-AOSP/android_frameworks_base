@@ -74,6 +74,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -291,6 +292,8 @@ public class Typeface {
      * @hide
      */
     public static final String DEFAULT_FAMILY = "sans-serif";
+
+    private static volatile String sFontName = DEFAULT_FAMILY;
 
     static {
         if (Flags.doNotOverwriteStaticFinalField()) {

@@ -445,6 +445,7 @@ import com.android.internal.util.MemInfoReader;
 import com.android.internal.util.Preconditions;
 import com.android.internal.util.function.pooled.PooledLambda;
 import com.android.server.AlarmManagerInternal;
+import com.android.server.AxExtServiceFactory;
 import com.android.server.BootReceiver;
 import com.android.server.DeviceIdleInternal;
 import com.android.server.DisplayThread;
@@ -1625,6 +1626,10 @@ public class ActivityManagerService extends IActivityManager.Stub
 
     static final HostingRecord sNullHostingRecord =
             new HostingRecord(HostingRecord.HOSTING_TYPE_EMPTY);
+
+    private boolean mThreeFingersSwipeEnabled;
+    private boolean mThreeFingerGestureActive;
+
     /**
      * Used to notify activity lifecycle events.
      */
@@ -5360,6 +5365,10 @@ public class ActivityManagerService extends IActivityManager.Stub
             // Start PSI monitoring in LMKD if it was skipped earlier.
             ProcessList.startPsiMonitoringAfterBoot();
 
+            mHandler.postDelayed(() -> {
+                AxExtServiceFactory.onLateSystemReady();
+            }, 5000);
+
             mUserController.onBootComplete(
                     new IIntentReceiver.Stub() {
                         @Override
@@ -5367,6 +5376,11 @@ public class ActivityManagerService extends IActivityManager.Stub
                                 String data, Bundle extras, boolean ordered,
                                 boolean sticky, int sendingUser) {
                             mBootCompletedTimestamp = SystemClock.uptimeMillis();
+                            mHandler.postDelayed(() -> {
+                                synchronized (mProcLock) {
+                                    mCachedAppOptimizer.compactAllSystem();
+                                }
+                            }, 300000);
                             // Defer the full Pss collection as the system is really busy now.
                             mHandler.postDelayed(() -> {
                                 synchronized (mProcLock) {
@@ -9244,9 +9258,8 @@ public class ActivityManagerService extends IActivityManager.Stub
             mComponentAliasResolver.onSystemReady(mConstants.mEnableComponentAlias,
                     mConstants.mComponentAliasOverrides);
             t.traceEnd(); // componentAlias
-
-            AxSandboxService.systemReady();
-            GameSpaceService.systemReady();
+            
+            AxExtServiceFactory.systemReady();
 
             t.traceEnd(); // PhaseActivityManagerReady
         }
@@ -19706,6 +19719,46 @@ public class ActivityManagerService extends IActivityManager.Stub
         return mFreezer;
     }
 
+    @Override
+    public String getSpoofPifConfig() {
+        return AxExtServiceFactory.getSpoofManager().getPifConfig();
+    }
+
+    @Override
+    public String getSpoofPifSpoofPhotos() {
+        return AxExtServiceFactory.getSpoofManager().getPifSpoofPhotos();
+    }
+
+    @Override
+    public String getSpoofPifSpoofNetflix() {
+        return AxExtServiceFactory.getSpoofManager().getPifSpoofNetflix();
+    }
+
+    @Override
+    public String getSpoofPifSpoofSnapchat() {
+        return AxExtServiceFactory.getSpoofManager().getPifSpoofSnapchat();
+    }
+
+    @Override
+    public String getSpoofGamePropsConfig() {
+        return AxExtServiceFactory.getSpoofManager().getGamePropsConfig();
+    }
+
+    @Override
+    public String getSpoofTrickyStoreTarget() {
+        return AxExtServiceFactory.getSpoofManager().getTrickyStoreTarget();
+    }
+
+    @Override
+    public String getSpoofTrickyStoreKeyBox() {
+        return AxExtServiceFactory.getSpoofManager().getTrickyStoreKeyBox();
+    }
+
+    @Override
+    public String getSpoofTrickyStorePatch() {
+        return AxExtServiceFactory.getSpoofManager().getTrickyStorePatch();
+    }
+
     // Set of IntentCreatorToken objects that are currently active.
     private static final Map<IntentCreatorToken.Key, WeakReference<IntentCreatorToken>>
             sIntentCreatorTokenCache = new ConcurrentHashMap<>();
@@ -19947,5 +20000,93 @@ public class ActivityManagerService extends IActivityManager.Stub
             return;
         }
         r.getWindowProcessController().setOptimizationInfo(compilerFilter, compilationReason);
+    }
+
+    @Override
+    public boolean isThreeFingersSwipeActive() {
+        return mThreeFingersSwipeEnabled && mThreeFingerGestureActive;
+    }
+
+    @Override
+    public void setThreeFingersSwipeActive(boolean active) {
+        mThreeFingersSwipeEnabled = active;
+    }
+
+    @Override
+    public void setThreeGestureStateActive(boolean active) {
+        mThreeFingerGestureActive = active;
+    }
+
+    @Override
+    public void releaseMemory(int minAdj, int maxKillCount,
+                              boolean includeUIProcesses, boolean skipCamera) {
+        if (minAdj <= 0) return;
+
+        final int currentUser = mUserController.getCurrentUserId();
+        final ArrayList<ProcessRecord> victims = new ArrayList<>();
+
+        synchronized (this) {
+            synchronized (mProcLock) {
+                mProcessList.forEachLruProcessesLOSP(false, proc -> {
+                    if (proc == null || proc.getThread() == null) return;
+
+                    final int setAdj = proc.getSetAdj();
+                    final int state = proc.getSetProcState();
+
+                    // Exclusions
+                    if (proc.isPersistent()) return;
+                    if (proc.userId != currentUser) return;
+                    if (state <= ActivityManager.PROCESS_STATE_IMPORTANT_FOREGROUND) return;
+                    if (state == ActivityManager.PROCESS_STATE_HOME) return;
+                    if (!includeUIProcesses && proc.hasActivities()) return;
+
+                    if (setAdj >= minAdj) victims.add(proc);
+                });
+            }
+        }
+
+        victims.sort((a, b) -> Integer.compare(b.getSetAdj(), a.getSetAdj()));
+
+        int killed = 0;
+        for (ProcessRecord proc : victims) {
+            if (killed >= maxKillCount) break;
+            final String reason = "screen-on memory reclaim";
+            mHandler.post(() -> {
+                synchronized (ActivityManagerService.this) {
+                    proc.killLocked(reason,
+                            ApplicationExitInfo.REASON_OTHER,
+                            ApplicationExitInfo.SUBREASON_MEMORY_PRESSURE, true);
+                }
+            });
+            killed++;
+        }
+    }
+
+    @Override
+    public void compactAllSystem() {
+        mHandler.post(() -> {
+            synchronized (mProcLock) {
+                mCachedAppOptimizer.compactAllSystem();
+            }
+        });
+    }
+
+    public class ProcessComparator implements Comparator<ProcessToKill> {
+        @Override
+        public int compare(ProcessToKill p1, ProcessToKill p2) {
+            return Integer.compare(p2.adj, p1.adj);
+        }
+    }
+
+    public static final class ProcessToKill {
+        public int adj;
+        public String name; 
+        public int pid;
+
+        public ProcessToKill(int pid, int adj, String name) {
+            this.pid = pid;
+            this.adj = adj;
+            this.name = name;
+        }
     }
 }

@@ -14,4 +14,16 @@
     <item type="id" name="original_text_color" />
     <item type="id" name="original_typeface" />
 
+
+    <!-- Lockscreen widgets and QS/volume extras -->
+    <item type="id" name="keyguard_slice_view" />
+    <item type="id" name="app_volume_icon" />
+    <item type="id" name="volume_percentage_text" />
+    <item type="id" name="volume_progress" />
+    <item type="id" name="volume_slider" />
+    <item type="id" name="battery_progress" />
+    <item type="id" name="memory_progress" />
+    <item type="id" name="temperature_progress" />
+    <item type="id" name="icon_view" />
+
 </resources>

@@ -148,6 +148,7 @@ import com.android.systemui.navigationbar.NavigationBarController;
 import com.android.systemui.navigationbar.views.NavigationBarView;
 import com.android.systemui.notetask.NoteTaskController;
 import com.android.systemui.charging.ChargingAnimationViewController;
+import com.android.systemui.edgelight.EdgeLightViewController;
 import com.android.systemui.pulse.PulseViewController;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.ActivityStarter.OnDismissAction;
@@ -439,6 +440,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
     private final DemoModeController mDemoModeController;
     private final PulseViewController mPulseViewController;
     private final ChargingAnimationViewController mChargingAnimationViewController;
+    private final EdgeLightViewController mEdgeLightViewController;
     private final NotificationsController mNotificationsController;
     private final StatusBarSignalPolicy mStatusBarSignalPolicy;
     private final StatusBarHideIconsForBouncerManager mStatusBarHideIconsForBouncerManager;
@@ -729,11 +731,13 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
             WindowManager windowManager,
             WindowManagerProvider windowManagerProvider,
             PulseViewController pulseViewController,
-            ChargingAnimationViewController chargingAnimationViewController
+            ChargingAnimationViewController chargingAnimationViewController,
+            EdgeLightViewController edgeLightViewController
     ) {
         mContext = context;
         mPulseViewController = pulseViewController;
         mChargingAnimationViewController = chargingAnimationViewController;
+        mEdgeLightViewController = edgeLightViewController;
         mNotificationsController = notificationsController;
         mFragmentService = fragmentService;
         mLightBarController = lightBarController;
@@ -1142,6 +1146,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
         ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
         detachFromParent(mPulseViewController.getPulseView());
         detachFromParent(mChargingAnimationViewController.getChargingView());
+        detachFromParent(mEdgeLightViewController.getEdgeLightView());
 
         if (mPulseViewController.getAmbientEnabled()) {
             getScrimOverlayContainer().addView(mPulseViewController.getPulseView(),
@@ -1158,6 +1163,11 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
         }
 
         getScrimOverlayContainer().addView(mChargingAnimationViewController.getChargingView(),
+                new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT));
+
+        getScrimOverlayContainer().addView(mEdgeLightViewController.getEdgeLightView(),
                 new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT));

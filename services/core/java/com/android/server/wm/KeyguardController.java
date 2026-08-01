@@ -244,6 +244,13 @@ class KeyguardController {
         state.mAodShowing = aodShowing;
         state.writeEventLog("setKeyguardShown");
 
+        if (displayId == DEFAULT_DISPLAY && keyguardChanged) {
+            final GameSpaceService gameSpace = GameSpaceService.get();
+            if (gameSpace != null) {
+                gameSpace.onKeyguardChanged(keyguardShowing);
+            }
+        }
+
         if (keyguardChanged || (mWindowManager.mFlags.mAodTransition && aodChanged)) {
             if (keyguardChanged) {
                 // Irrelevant to AOD.

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: 2026 The Vie AOSP Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+
+    <!-- GameSpace -->
+    <java-symbol type="string" name="gamespace_new_game_added" />
+
+</resources>

@@ -496,6 +496,7 @@ import com.android.server.wm.ActivityServiceConnectionsHolder;
 import com.android.server.wm.ActivityTaskManagerInternal;
 import com.android.server.wm.ActivityTaskManagerService;
 import com.android.server.wm.AxSandboxService;
+import com.android.server.wm.GameSpaceService;
 import com.android.server.wm.WindowManagerInternal;
 import com.android.server.wm.WindowManagerService;
 import com.android.server.wm.WindowProcessController;
@@ -9245,6 +9246,7 @@ public class ActivityManagerService extends IActivityManager.Stub
             t.traceEnd(); // componentAlias
 
             AxSandboxService.systemReady();
+            GameSpaceService.systemReady();
 
             t.traceEnd(); // PhaseActivityManagerReady
         }

@@ -1915,6 +1915,10 @@ public class ActivityTaskSupervisor implements RecentTasks.Callbacks {
             mBalController.checkActivityAllowedToClearTask(
                             task, callingUid, callingPid, callerActivityClassName);
             AxSandboxService.get().removeTask(task, reason);
+            final GameSpaceService gameSpace = GameSpaceService.get();
+            if (gameSpace != null) {
+                gameSpace.removeTask(task, reason);
+            }
         } finally {
             task.mInRemoveTask = false;
             mService.mChainTracker.endPartial();

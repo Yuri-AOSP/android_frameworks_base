@@ -594,6 +594,8 @@ public class CommandQueue extends IStatusBar.Stub implements
          * @see IStatusBar#moveFocusedTaskToDesktop(int)
          */
         default void moveFocusedTaskToDesktop(int displayId) {}
+
+        default void restartSystemUI() {}
     }
 
     @VisibleForTesting
@@ -1550,6 +1552,13 @@ public class CommandQueue extends IStatusBar.Stub implements
         mHandler.obtainMessage(MSG_ENTER_DESKTOP, args).sendToTarget();
     }
 
+    @Override
+    public void restartSystemUI() {
+        synchronized (mLock) {
+            mHandler.removeMessages(MSG_RESTART_SYSTEMUI);
+            mHandler.obtainMessage(MSG_RESTART_SYSTEMUI).sendToTarget();
+        }
+    }
 
     private final class H extends Handler {
         private H(Looper l) {
@@ -2094,6 +2103,11 @@ public class CommandQueue extends IStatusBar.Stub implements
                     }
                     break;
                 }
+                case MSG_RESTART_SYSTEMUI:
+                    for (int i = 0; i < mCallbacks.size(); i++) {
+                        mCallbacks.get(i).restartSystemUI();
+                    }
+                    break;
             }
         }
     }

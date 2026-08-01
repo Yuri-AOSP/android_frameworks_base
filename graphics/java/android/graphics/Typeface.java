@@ -54,6 +54,7 @@ import android.util.LruCache;
 import android.util.Pair;
 import android.util.SparseArray;
 
+import com.android.internal.util.android.FontController;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
@@ -178,7 +179,7 @@ public class Typeface {
      */
     @GuardedBy("SYSTEM_FONT_MAP_LOCK")
     @UnsupportedAppUsage(trackingBug = 123769347)
-    static final Map<String, Typeface> sSystemFontMap = new ArrayMap<>();
+    static final Map<String, Typeface> sSystemFontMap = new HashMap<>();
 
     // DirectByteBuffer object to hold sSystemFontMap's backing memory mapping.
     static ByteBuffer sSystemFontMapBuffer = null;
@@ -997,7 +998,7 @@ public class Typeface {
      * @return The best matching typeface.
      */
     public static Typeface create(String familyName, @Style int style) {
-        return create(getSystemDefaultTypeface(familyName), style);
+        return create(getOverrideTypeface(familyName), style);
     }
 
     /**
@@ -1380,7 +1381,14 @@ public class Typeface {
         mCleaner.run();
     }
 
-    private static Typeface getSystemDefaultTypeface(@NonNull String familyName) {
+    /** @hide */
+    public static Typeface getOverrideTypeface(@NonNull String familyName) {
+        Typeface tf = FontController.getOverrideTypeface(familyName);
+        return tf == null ? getSystemDefaultTypeface(familyName) : tf;
+    }
+
+    /** @hide */
+    public static Typeface getSystemDefaultTypeface(@NonNull String familyName) {
         Typeface tf = sSystemFontMap.get(familyName);
         return tf == null ? Typeface.DEFAULT : tf;
     }
@@ -1582,6 +1590,46 @@ public class Typeface {
         // `Typeface.SANS_SERIF == Typeface.create("sans-serif", Typeface.NORMAL)`)
         // pass, replace the instance in the system font map with the pending Typeface.
         systemFontMap.put(familyName, pending);
+    }
+
+    /** @hide */
+    public static void changeFont() {
+        synchronized (sDynamicCacheLock) {
+            sDynamicTypefaceCache.evictAll();
+        }
+
+        String fontFamily = FontController.getCurrentFontFamily();
+
+        sFontName = fontFamily;
+
+        Typeface tf;
+        if (FontController.shouldBypassVariableFont()) {
+            tf = getOverrideTypeface(sFontName);
+        } else {
+            // Use FontController's fallback resolver to handle family-list
+            // entries (e.g. google-sans-flex) that may not register in
+            // sSystemFontMap by their list name, falling back through known
+            // aliases to Typeface.DEFAULT.
+            tf = FontController.resolveBaseTypeface();
+        }
+
+        Typeface tfBold = create(tf, BOLD);
+        Typeface tfItalic = create(tf, ITALIC);
+        Typeface tfItalicBold = create(tf, BOLD_ITALIC);
+
+        nativeForceSetStaticFinalField("DEFAULT", tf);
+        nativeForceSetStaticFinalField("DEFAULT_BOLD", tfBold);
+        nativeForceSetStaticFinalField("SANS_SERIF", tf);
+
+        changeDefaultFontForTest(
+                Arrays.asList(
+                        tf, tfBold, tfItalic, tfItalicBold),
+                Arrays.asList(tf, Typeface.SERIF, Typeface.MONOSPACE));
+    }
+
+    /** @hide */
+    public static String getFontName() {
+        return sFontName;
     }
 
     /** @hide */

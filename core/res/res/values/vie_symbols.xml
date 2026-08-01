@@ -8,4 +8,10 @@
     <!-- GameSpace -->
     <java-symbol type="string" name="gamespace_new_game_added" />
 
+
+    <!-- IMS status bar icon slots -->
+    <java-symbol type="string" name="status_bar_volte" />
+    <java-symbol type="string" name="status_bar_vonr" />
+    <java-symbol type="string" name="status_bar_vowifi" />
+
 </resources>

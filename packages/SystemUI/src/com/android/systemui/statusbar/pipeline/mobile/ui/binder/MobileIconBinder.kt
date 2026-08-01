@@ -37,6 +37,7 @@ import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.plugins.DarkIconDispatcher
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.StatusBarIconView
+import com.android.systemui.statusbar.connectivity.ThemeIconController
 import com.android.systemui.statusbar.StatusBarIconView.STATE_HIDDEN
 import com.android.systemui.statusbar.core.NewStatusBarIcons
 import com.android.systemui.statusbar.pipeline.mobile.domain.model.SignalIconModel
@@ -49,6 +50,7 @@ import com.android.systemui.statusbar.pipeline.shared.ui.binder.StatusBarViewBin
 import com.android.systemui.util.kotlin.pairwiseBy
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 data class MobileIconColors(@ColorInt val tint: Int, @ColorInt val contrast: Int)
@@ -134,6 +136,23 @@ object MobileIconBinder {
 
                     // Set the icon for the triangle
                     launch {
+                        var lastCellularIcon: SignalIconModel.Cellular? = null
+
+                        val refreshCallback = Runnable {
+                            val icon = lastCellularIcon ?: return@Runnable
+                            val themed = ThemeIconController
+                                .getThemedSignalIcon(view.context, icon.level, icon.numberOfLevels)
+                            if (themed != null) {
+                                iconView.setImageDrawable(themed)
+                            } else {
+                                iconView.setImageDrawable(mobileDrawable)
+                                mobileDrawable.level = icon.toSignalDrawableState()
+                            }
+                            mobileGroupView.invalidate()
+                        }
+                        ThemeIconController.registerRefreshCallback(refreshCallback)
+
+                        try {
                         viewModel.icon
                             .pairwiseBy(initialValue = null) { oldIcon, newIcon ->
                                 // Make sure we requestLayout if the number of levels changes
@@ -150,6 +169,7 @@ object MobileIconBinder {
                             }
                             .collect { (shouldRequestLayout, newIcon) ->
                                 if (newIcon is SignalIconModel.Cellular) {
+                                    lastCellularIcon = newIcon
                                     val packedSignalDrawableState = newIcon.toSignalDrawableState()
                                     viewModel.verboseLogger?.logBinderReceivedSignalCellularIcon(
                                         parentView = view,
@@ -158,8 +178,18 @@ object MobileIconBinder {
                                         packedSignalDrawableState = packedSignalDrawableState,
                                         shouldRequestLayout = shouldRequestLayout,
                                     )
-                                    iconView.setImageDrawable(mobileDrawable)
-                                    mobileDrawable.level = packedSignalDrawableState
+                                    val themedDrawable = ThemeIconController
+                                        .getThemedSignalIcon(
+                                            view.context,
+                                            newIcon.level,
+                                            newIcon.numberOfLevels
+                                        )
+                                    if (themedDrawable != null) {
+                                        iconView.setImageDrawable(themedDrawable)
+                                    } else {
+                                        iconView.setImageDrawable(mobileDrawable)
+                                        mobileDrawable.level = packedSignalDrawableState
+                                    }
                                     viewModel.verboseLogger?.logBinderSignalIconResult(
                                         parentView = view,
                                         subId = viewModel.subscriptionId,
@@ -178,6 +208,9 @@ object MobileIconBinder {
                                     iconView.requestLayout()
                                 }
                             }
+                        } finally {
+                            ThemeIconController.unregisterRefreshCallback(refreshCallback)
+                        }
                     }
 
                     launch {
@@ -188,16 +221,38 @@ object MobileIconBinder {
 
                     // Set the network type icon
                     launch {
-                        viewModel.networkTypeIcon.distinctUntilChanged().collect { dataTypeId ->
+                        combine(
+                            viewModel.networkTypeIcon.distinctUntilChanged(),
+                            viewModel.smallMobileData.distinctUntilChanged()
+                        ) { dataTypeId, isSmall ->
+                            Pair(dataTypeId, isSmall)
+                        }.collect { (dataTypeId, isSmall) ->
                             viewModel.verboseLogger?.logBinderReceivedNetworkTypeIcon(
                                 view,
                                 viewModel.subscriptionId,
                                 dataTypeId,
                             )
-                            dataTypeId?.let { IconViewBinder.bind(dataTypeId, networkTypeView) }
+                            if (dataTypeId != null) {
+                                if (isSmall) {
+                                    networkTypeSmallView?.let { smallView ->
+                                        IconViewBinder.bind(dataTypeId, smallView)
+                                    }
+                                    networkTypeView.setImageDrawable(null)
+                                } else {
+                                    IconViewBinder.bind(dataTypeId, networkTypeView)
+                                    networkTypeSmallView?.setImageDrawable(null)
+                                }
+                            } else {
+                                networkTypeView.setImageDrawable(null)
+                                networkTypeSmallView?.setImageDrawable(null)
+                            }
+
                             val prevVis = networkTypeContainer.visibility
                             networkTypeContainer.visibility =
-                                if (dataTypeId != null) VISIBLE else GONE
+                                if (dataTypeId != null && !isSmall) VISIBLE else GONE
+
+                            networkTypeSmallView?.visibility =
+                                if (dataTypeId != null && isSmall) VISIBLE else GONE
 
                             if (prevVis != networkTypeContainer.visibility) {
                                 view.requestLayout()
@@ -210,28 +265,43 @@ object MobileIconBinder {
                         viewModel.networkTypeBackground.collect { background ->
                             networkTypeContainer.setBackgroundResource(background?.resId ?: 0)
 
+                            val tint = ColorStateList.valueOf(iconTint.value.tint)
+                            networkTypeSmallView?.imageTintList = tint
+
                             // Tint will invert when this bit changes
                             if (background?.resId != null) {
-                                networkTypeContainer.backgroundTintList =
-                                    ColorStateList.valueOf(iconTint.value.tint)
+                                networkTypeContainer.backgroundTintList = tint
                                 networkTypeView.imageTintList =
                                     ColorStateList.valueOf(iconTint.value.contrast)
                             } else {
-                                networkTypeView.imageTintList =
-                                    ColorStateList.valueOf(iconTint.value.tint)
+                                networkTypeView.imageTintList = tint
                             }
                         }
                     }
 
                     // Set the roaming indicator
                     launch {
-                        viewModel.roaming.distinctUntilChanged().collect { isRoaming ->
+                        viewModel.isRoamingVisible.distinctUntilChanged().collect { isRoaming ->
                             if (NewStatusBarIcons.isEnabled) {
                                 endSideRoamingView.isVisible = isRoaming
                             } else {
                                 roamingView.isVisible = isRoaming
                                 roamingSpace.isVisible = isRoaming
                             }
+                        }
+                    }
+
+                    // Set the roaming indicator (single SIM - end side)
+                    launch {
+                        viewModel.isRoamingVisible.distinctUntilChanged().collect { isRoaming ->
+                            endSideRoamingView.isVisible = isRoaming
+                        }
+                    }
+
+                    // Set the roaming indicator (single SIM - end side)
+                    launch {
+                        viewModel.isRoamingVisible.distinctUntilChanged().collect { isRoaming ->
+                            endSideRoamingView.isVisible = isRoaming
                         }
                     }
 

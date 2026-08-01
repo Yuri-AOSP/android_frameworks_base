@@ -76,4 +76,9 @@
     <bool name="config_themedBatteryPillIconLeading">true</bool>
     <bool name="config_themedBatteryPillOutline">false</bool>
     <bool name="config_themedBatteryPillNub">true</bool>
+
+    <!-- Status bar burn-in protection -->
+    <bool name="config_systemBarBurnInProtection">@*android:bool/config_enableBurnInProtection</bool>
+    <integer name="config_systemBarBurnInProtectionShiftInterval">60</integer>
+
 </resources>

@@ -315,4 +315,10 @@
     <string name="quick_settings_infinity_memoryboost_toast">Freed %1$d MB of RAM</string>
     <string name="quick_settings_infinity_memoryboost_no_ram">No RAM to free currently</string>
 
+
+    <!-- IMS status bar icons -->
+    <string name="accessibility_status_bar_volte">VoLTE</string>
+    <string name="accessibility_status_bar_vonr">VoNR</string>
+    <string name="accessibility_status_bar_vowifi">Wi-Fi calling</string>
+
 </resources>

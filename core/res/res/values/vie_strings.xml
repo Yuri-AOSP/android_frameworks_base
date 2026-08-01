@@ -8,4 +8,10 @@
     <!-- GameSpace -->
     <string name="gamespace_new_game_added"><xliff:g id="name" example="MyApp">%s</xliff:g> added to GameSpace</string>
 
+
+    <!-- IMS status bar icon slots -->
+    <string translatable="false" name="status_bar_volte">volte</string>
+    <string translatable="false" name="status_bar_vonr">vonr</string>
+    <string translatable="false" name="status_bar_vowifi">vowifi</string>
+
 </resources>

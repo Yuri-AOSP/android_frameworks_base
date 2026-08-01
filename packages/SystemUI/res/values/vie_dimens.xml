@@ -74,4 +74,13 @@
 
     <!-- Lockscreen clock -->
     <dimen name="custom_aod_image_size">180dp</dimen>
+
+    <!-- Status bar overlays and burn-in offsets -->
+    <dimen name="status_bar_offset_max_x">4dp</dimen>
+    <dimen name="status_bar_offset_max_y">4dp</dimen>
+    <dimen name="status_bar_signal_overlay_height">12dp</dimen>
+    <dimen name="status_bar_signal_overlay_width">17dp</dimen>
+    <dimen name="status_bar_wifi_overlay_height">12.58dp</dimen>
+    <dimen name="status_bar_wifi_overlay_width">17dp</dimen>
+
 </resources>

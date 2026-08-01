@@ -20,6 +20,8 @@ package com.android.systemui.keyguard.ui.view.layout.blueprints
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
 import com.android.systemui.keyguard.shared.model.KeyguardSection
+import com.android.systemui.keyguard.ui.view.layout.sections.AODStyleSection
+import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardClockStyleSection
 import com.android.systemui.keyguard.ui.view.layout.sections.AccessibilityActionsSection
 import com.android.systemui.keyguard.ui.view.layout.sections.AodBurnInSection
 import com.android.systemui.keyguard.ui.view.layout.sections.AodNotificationIconsSection
@@ -51,6 +53,8 @@ import javax.inject.Named
 class SplitShadeKeyguardBlueprint
 @Inject
 constructor(
+    keyguardClockStyleSection: KeyguardClockStyleSection,
+    aodStyleSection: AODStyleSection,
     accessibilityActionsSection: AccessibilityActionsSection,
     defaultIndicationAreaSection: DefaultIndicationAreaSection,
     defaultDeviceEntrySection: DefaultDeviceEntrySection,
@@ -74,6 +78,8 @@ constructor(
     override val sections by lazy {
         SceneContainerFlag.assertInLegacyMode()
         listOfNotNull(
+            keyguardClockStyleSection,
+            aodStyleSection,
             accessibilityActionsSection,
             defaultIndicationAreaSection,
             defaultShortcutsSection,

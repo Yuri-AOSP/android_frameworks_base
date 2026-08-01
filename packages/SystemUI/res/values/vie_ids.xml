@@ -8,4 +8,10 @@
     <!-- Container the shade hangs our own overlays off, below the scrims -->
     <item type="id" name="custom_overlay_container" />
 
+    <!-- Lockscreen clock styles -->
+    <item type="id" name="aod_ls" />
+    <item type="id" name="keyguard_info_widgets" />
+    <item type="id" name="original_text_color" />
+    <item type="id" name="original_typeface" />
+
 </resources>

@@ -1746,6 +1746,10 @@ public final class SystemServer implements Dumpable {
             wm.onInitReady();
             t.traceEnd();
 
+            t.traceBegin("StartInfinitySystemExService");
+            mSystemServiceManager.startService(InfinitySystemExService.class);
+            t.traceEnd();
+
             // Start receiving calls from SensorManager services. Start in a separate thread
             // because it need to connect to SensorManager. This has to start
             // after PHASE_WAIT_FOR_SENSOR_SERVICE is done.

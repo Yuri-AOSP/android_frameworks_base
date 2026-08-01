@@ -149,6 +149,7 @@ import com.android.systemui.navigationbar.views.NavigationBarView;
 import com.android.systemui.notetask.NoteTaskController;
 import com.android.systemui.charging.ChargingAnimationViewController;
 import com.android.systemui.edgelight.EdgeLightViewController;
+import com.android.systemui.media.MediaViewController;
 import com.android.systemui.pulse.PulseViewController;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.ActivityStarter.OnDismissAction;
@@ -441,6 +442,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
     private final PulseViewController mPulseViewController;
     private final ChargingAnimationViewController mChargingAnimationViewController;
     private final EdgeLightViewController mEdgeLightViewController;
+    private final MediaViewController mMediaViewController;
     private final NotificationsController mNotificationsController;
     private final StatusBarSignalPolicy mStatusBarSignalPolicy;
     private final StatusBarHideIconsForBouncerManager mStatusBarHideIconsForBouncerManager;
@@ -732,12 +734,14 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
             WindowManagerProvider windowManagerProvider,
             PulseViewController pulseViewController,
             ChargingAnimationViewController chargingAnimationViewController,
-            EdgeLightViewController edgeLightViewController
+            EdgeLightViewController edgeLightViewController,
+            MediaViewController mediaViewController
     ) {
         mContext = context;
         mPulseViewController = pulseViewController;
         mChargingAnimationViewController = chargingAnimationViewController;
         mEdgeLightViewController = edgeLightViewController;
+        mMediaViewController = mediaViewController;
         mNotificationsController = notificationsController;
         mFragmentService = fragmentService;
         mLightBarController = lightBarController;
@@ -1144,9 +1148,17 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
 
     private void attachCustomOverlays() {
         ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
+        detachFromParent(mMediaViewController.getMediaArtScrim());
         detachFromParent(mPulseViewController.getPulseView());
         detachFromParent(mChargingAnimationViewController.getChargingView());
         detachFromParent(mEdgeLightViewController.getEdgeLightView());
+
+        View scrimBehindForMedia = root.findViewById(R.id.scrim_behind);
+        root.addView(mMediaViewController.getMediaArtScrim(),
+                Math.max(root.indexOfChild(scrimBehindForMedia), 0),
+                new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT));
 
         if (mPulseViewController.getAmbientEnabled()) {
             getScrimOverlayContainer().addView(mPulseViewController.getPulseView(),

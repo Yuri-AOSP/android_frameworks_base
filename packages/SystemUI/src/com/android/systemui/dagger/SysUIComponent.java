@@ -28,6 +28,7 @@ import com.android.systemui.dagger.qualifiers.PerUser;
 import com.android.systemui.dump.DumpManager;
 import com.android.systemui.edgelight.EdgeLightViewController;
 import com.android.systemui.keyguard.KeyguardSliceProvider;
+import com.android.systemui.media.MediaViewController;
 import com.android.systemui.people.PeopleProvider;
 import com.android.systemui.pulse.PulseViewController;
 import com.android.systemui.settings.MultiUserUtilsModule;
@@ -220,4 +221,7 @@ public interface SysUIComponent {
 
     @SysUISingleton
     EdgeLightViewController edgeLightViewController();
+
+    @SysUISingleton
+    MediaViewController mediaViewController();
 }

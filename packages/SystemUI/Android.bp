@@ -515,6 +515,8 @@ android_library {
     ],
     defaults: ["SystemUI-srcs-defaults"],
     static_libs: [
+        "smartspace-proto-java",
+        "smartspace-proto-lite-java",
         "axquicklook-client",
         "ax_platform_hooks",
         "//frameworks/libs/systemui:compilelib",

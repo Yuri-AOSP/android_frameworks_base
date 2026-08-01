@@ -22,6 +22,7 @@ import com.android.systemui.LatencyTester
 import com.android.systemui.SliceBroadcastRelayHandler
 import com.android.systemui.accessibility.Magnification
 import com.android.systemui.applocker.AxAppLockerHelper
+import com.android.systemui.ax.AxPlatformServiceImpl
 import com.android.systemui.smartpixel.ui.SmartPixelManager
 import com.android.systemui.back.domain.interactor.BackActionInteractor
 import com.android.systemui.biometrics.BiometricNotificationService
@@ -341,4 +342,9 @@ abstract class SystemUICoreStartableModule {
     @IntoMap
     @ClassKey(SmartPixelManager::class)
     abstract fun bindSmartPixelManager(impl: SmartPixelManager): CoreStartable
+
+    @Binds
+    @IntoMap
+    @ClassKey(AxPlatformServiceImpl::class)
+    abstract fun bindAxPlatformService(impl: AxPlatformServiceImpl): CoreStartable
 }

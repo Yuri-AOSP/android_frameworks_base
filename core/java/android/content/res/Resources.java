@@ -1026,7 +1026,29 @@ public class Resources {
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
     Drawable loadDrawable(@NonNull TypedValue value, int id, int density, @Nullable Theme theme)
             throws NotFoundException {
+        return loadDrawableInternal(value, id, density, theme);
+    }
+
+    /** @hide */
+    @NonNull
+    public Drawable loadDrawableInternal(@NonNull TypedValue value, int id, int density,
+            @Nullable Theme theme) throws NotFoundException {
         return mResourcesImpl.loadDrawable(this, value, id, density, theme);
+    }
+
+    /** @hide */
+    @Nullable
+    public Drawable getDrawableInternal(@DrawableRes int id) {
+        final TypedValue value = obtainTempTypedValue();
+        try {
+            final ResourcesImpl impl = mResourcesImpl;
+            impl.getValueForDensity(id, 0, value, true);
+            return loadDrawableInternal(value, id, 0, null);
+        } catch (Exception e) {
+            return null;
+        } finally {
+            releaseTempTypedValue(value);
+        }
     }
 
     /**

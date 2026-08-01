@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: 2026 The Vie AOSP Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+
+    <!-- Container the shade hangs our own overlays off, below the scrims -->
+    <item type="id" name="custom_overlay_container" />
+
+</resources>

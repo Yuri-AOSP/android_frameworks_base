@@ -13905,6 +13905,43 @@ public final class Settings {
          * @hide
          */
         public static final String SMART_PIXEL_FILTER_PERCENT = "smart_pixel_filter_percent";
+
+        /**
+         * Pulse lockscreen music visualizer
+         * @hide
+         */
+        public static final String LOCKSCREEN_PULSE_ENABLED = "lockscreen_pulse_enabled";
+
+        /**
+         * Pulse lockscreen music visualizer on ambient display
+         * @hide
+         */
+        public static final String AMBIENT_PULSE_ENABLED = "ambient_pulse_enabled";
+
+        /**
+         * @hide
+         */
+        public static final String PULSE_BAR_COUNT = "pulse_bar_count";
+
+        /**
+         * @hide
+         */
+        public static final String PULSE_ROUNDED_BARS = "pulse_rounded_bars";
+
+        /**
+         * @hide
+         */
+        public static final String PULSE_COLOR = "pulse_color";
+
+        /**
+         * @hide
+         */
+        public static final String PULSE_RENDERER = "pulse_renderer";
+
+        /**
+         * @hide
+         */
+        public static final String PULSE_BASS_HAPTICS = "pulse_bass_haptics";
     }
 
     /**

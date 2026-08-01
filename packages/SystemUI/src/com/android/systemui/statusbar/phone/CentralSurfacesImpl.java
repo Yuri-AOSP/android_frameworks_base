@@ -79,11 +79,14 @@ import android.view.IWindowManager;
 import android.view.MotionEvent;
 import android.view.ThreadedRenderer;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.WindowManagerGlobal;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.DateTimeView;
+import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 import androidx.lifecycle.Lifecycle;
@@ -144,6 +147,7 @@ import com.android.systemui.media.NotificationMediaManager;
 import com.android.systemui.navigationbar.NavigationBarController;
 import com.android.systemui.navigationbar.views.NavigationBarView;
 import com.android.systemui.notetask.NoteTaskController;
+import com.android.systemui.pulse.PulseViewController;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.ActivityStarter.OnDismissAction;
 import com.android.systemui.plugins.DarkIconDispatcher;
@@ -432,6 +436,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
     private final ExtensionController mExtensionController;
     private final UserInfoControllerImpl mUserInfoControllerImpl;
     private final DemoModeController mDemoModeController;
+    private final PulseViewController mPulseViewController;
     private final NotificationsController mNotificationsController;
     private final StatusBarSignalPolicy mStatusBarSignalPolicy;
     private final StatusBarHideIconsForBouncerManager mStatusBarHideIconsForBouncerManager;
@@ -720,9 +725,11 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
             EmergencyGestureIntentFactory emergencyGestureIntentFactory,
             QuickAccessWalletController walletController,
             WindowManager windowManager,
-            WindowManagerProvider windowManagerProvider
+            WindowManagerProvider windowManagerProvider,
+            PulseViewController pulseViewController
     ) {
         mContext = context;
+        mPulseViewController = pulseViewController;
         mNotificationsController = notificationsController;
         mFragmentService = fragmentService;
         mLightBarController = lightBarController;
@@ -1103,6 +1110,55 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
                 (requestTopUi, componentTag) -> mMainExecutor.execute(
                         () -> mTopUiController.setRequestTopUi(requestTopUi, componentTag)
                 )));
+        attachPulseView();
+    }
+
+    private ViewGroup getScrimOverlayContainer() {
+        ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
+
+        FrameLayout container = root.findViewById(R.id.custom_overlay_container);
+        if (container != null) {
+            return container;
+        }
+
+        container = new FrameLayout(mContext);
+        container.setId(R.id.custom_overlay_container);
+        container.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        View scrimInFront = root.findViewById(R.id.scrim_in_front);
+        int scrimIndex = Math.max(root.indexOfChild(scrimInFront) - 3, 0);
+        root.addView(container, scrimIndex);
+
+        return container;
+    }
+
+    private void attachPulseView() {
+        ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
+        detachFromParent(mPulseViewController.getPulseView());
+
+        if (mPulseViewController.getAmbientEnabled()) {
+            getScrimOverlayContainer().addView(mPulseViewController.getPulseView(),
+                    new FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT));
+        } else {
+            View scrimBehind = root.findViewById(R.id.scrim_behind);
+            int scrimBehindIndex = Math.max(root.indexOfChild(scrimBehind), 0);
+            root.addView(mPulseViewController.getPulseView(), scrimBehindIndex + 1,
+                    new FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+    }
+
+    private static void detachFromParent(View v) {
+        if (v == null) return;
+        final ViewParent p = v.getParent();
+        if (p instanceof ViewGroup) {
+            ((ViewGroup) p).removeView(v);
+        }
     }
 
     @VisibleForTesting

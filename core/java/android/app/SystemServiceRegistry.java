@@ -297,6 +297,7 @@ import android.webkit.WebViewBootstrapFrameworkInitializer;
 import com.android.internal.R;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.app.IAppOpsService;
+import com.android.internal.app.IAxSandboxManager;
 import com.android.internal.app.IBatteryStats;
 import com.android.internal.app.ISoundTriggerService;
 import com.android.internal.appwidget.IAppWidgetService;
@@ -948,6 +949,18 @@ public final class SystemServiceRegistry {
                 IBinder b = ServiceManager.getServiceOrThrow(Context.APP_OPS_SERVICE);
                 IAppOpsService service = IAppOpsService.Stub.asInterface(b);
                 return new AppOpsManager(ctx, service);
+            }});
+
+        registerService(Context.AX_SANDBOX_SERVICE, AxSandboxManager.class,
+                new CachedServiceFetcher<AxSandboxManager>() {
+            @Override
+            public AxSandboxManager createService(ContextImpl ctx) {
+                IBinder b = ServiceManager.getService(Context.AX_SANDBOX_SERVICE);
+                if (b == null) {
+                    return null;
+                }
+                IAxSandboxManager service = IAxSandboxManager.Stub.asInterface(b);
+                return new AxSandboxManager(ctx.getOuterContext(), service);
             }});
 
         registerService(Context.CAMERA_SERVICE, CameraManager.class,
@@ -2071,6 +2084,10 @@ public final class SystemServiceRegistry {
                 case Context.CONTEXTHUB_SERVICE:
                 case Context.VIRTUALIZATION_SERVICE:
                 case Context.VIRTUAL_DEVICE_SERVICE:
+                case Context.DROPBOX_SERVICE:
+                case Context.PERSISTENT_DATA_BLOCK_SERVICE:
+                case Context.OEM_LOCK_SERVICE:
+                case Context.AX_SANDBOX_SERVICE:
                     return null;
                 case Context.VCN_MANAGEMENT_SERVICE:
                     if (!hasSystemFeatureOpportunistic(ctx,

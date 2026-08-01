@@ -93,10 +93,12 @@ import com.android.systemui.statusbar.PulseExpansionHandler;
 import com.android.systemui.statusbar.QsFrameTranslateController;
 import com.android.systemui.statusbar.StatusBarState;
 import com.android.systemui.statusbar.notification.domain.interactor.ActiveNotificationsInteractor;
+import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
 import com.android.systemui.statusbar.notification.stack.AmbientState;
 import com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayout;
 import com.android.systemui.statusbar.notification.stack.NotificationStackScrollLayoutController;
 import com.android.systemui.statusbar.notification.stack.StackStateAnimator;
+import com.android.systemui.statusbar.NTForbiddenSwipeDownQSController;
 import com.android.systemui.statusbar.phone.KeyguardBypassController;
 import com.android.systemui.statusbar.phone.KeyguardStatusBarView;
 import com.android.systemui.statusbar.phone.LightBarController;
@@ -107,10 +109,17 @@ import com.android.systemui.statusbar.phone.StatusBarKeyguardViewManager;
 import com.android.systemui.statusbar.policy.CastController;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.policy.SplitShadeStateController;
-import com.android.systemui.user.domain.interactor.SelectedUserInteractor;
+import com.android.systemui.tuner.TunerService;
 import com.android.systemui.util.LargeScreenUtils;
+import com.android.systemui.util.ScrimUtils;
 import com.android.systemui.util.kotlin.JavaAdapter;
 import com.android.systemui.utils.windowmanager.WindowManagerProvider;
+
+import com.android.systemui.applocker.AxAppLockerHelper;
+import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
+import com.android.systemui.statusbar.notification.collection.NotificationEntry;
+import android.service.notification.StatusBarNotification;
+import android.view.View;
 
 import lineageos.providers.LineageSettings;
 
@@ -2519,5 +2528,15 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     interface FlingQsWithoutClickListener {
         void onFlingQsWithoutClick(ValueAnimator animator, float qsExpansionHeight,
                 float target, float vel);
+    }
+
+    public final void onAppLockerUpdated(String packageName) {
+        NotificationStackScrollLayoutController controller = mNotificationStackScrollLayoutController;
+        if (controller == null || controller.getView() == null) {
+            return;
+        }
+
+        NotificationStackScrollLayout view = controller.getView();
+        view.post(() -> view.onAppLockerUpdate(packageName));
     }
 }

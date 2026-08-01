@@ -26,4 +26,8 @@
     <item type="id" name="temperature_progress" />
     <item type="id" name="icon_view" />
 
+
+    <!-- Dynamic bar -->
+    <item type="id" name="ax_dynamic_bar_keyguard_chip" />
+
 </resources>

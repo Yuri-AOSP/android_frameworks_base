@@ -21,6 +21,7 @@ import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.keyguard.shared.model.KeyguardBlueprint
 import com.android.systemui.keyguard.shared.model.KeyguardSection
 import com.android.systemui.keyguard.ui.view.layout.sections.AODStyleSection
+import com.android.systemui.keyguard.ui.view.layout.sections.AxDynamicBarKeyguardChipSection
 import com.android.systemui.keyguard.ui.view.layout.sections.KeyguardClockStyleSection
 import com.android.systemui.keyguard.ui.view.layout.sections.AccessibilityActionsSection
 import com.android.systemui.keyguard.ui.view.layout.sections.AodBurnInSection
@@ -54,6 +55,7 @@ class DefaultKeyguardBlueprint
 constructor(
     keyguardClockStyleSection: KeyguardClockStyleSection,
     aodStyleSection: AODStyleSection,
+    axDynamicBarKeyguardChipSection: AxDynamicBarKeyguardChipSection,
     accessibilityActionsSection: AccessibilityActionsSection,
     defaultIndicationAreaSection: DefaultIndicationAreaSection,
     defaultDeviceEntrySection: DefaultDeviceEntrySection,
@@ -77,6 +79,7 @@ constructor(
         listOfNotNull(
             keyguardClockStyleSection,
             aodStyleSection,
+            axDynamicBarKeyguardChipSection,
             accessibilityActionsSection,
             defaultIndicationAreaSection,
             defaultShortcutsSection,

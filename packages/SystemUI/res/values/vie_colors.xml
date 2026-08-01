@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     SPDX-FileCopyrightText: 2026 The Vie AOSP Project
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+
+    <!-- Charging animation -->
+    <color name="config_chargingAnimPercentColor">#FFFFFFFF</color>
+    <color name="config_chargingAnimLowBatteryColor">#FFFF453A</color>
+    <color name="config_chargingAnimLightColor">#FFFFFFFF</color>
+
+</resources>

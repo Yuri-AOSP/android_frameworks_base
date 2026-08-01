@@ -21,6 +21,7 @@ import com.android.systemui.CoreStartable;
 import com.android.systemui.Dependency;
 import com.android.systemui.InitController;
 import com.android.systemui.SystemUIAppComponentFactoryBase;
+import com.android.systemui.charging.ChargingAnimationViewController;
 import com.android.systemui.controls.dagger.StartControlsStartableModule;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.dagger.qualifiers.PerUser;
@@ -212,4 +213,7 @@ public interface SysUIComponent {
 
     @SysUISingleton
     PulseViewController pulseViewController();
+
+    @SysUISingleton
+    ChargingAnimationViewController chargingAnimationViewController();
 }

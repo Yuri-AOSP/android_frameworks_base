@@ -147,6 +147,7 @@ import com.android.systemui.media.NotificationMediaManager;
 import com.android.systemui.navigationbar.NavigationBarController;
 import com.android.systemui.navigationbar.views.NavigationBarView;
 import com.android.systemui.notetask.NoteTaskController;
+import com.android.systemui.charging.ChargingAnimationViewController;
 import com.android.systemui.pulse.PulseViewController;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.ActivityStarter.OnDismissAction;
@@ -437,6 +438,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
     private final UserInfoControllerImpl mUserInfoControllerImpl;
     private final DemoModeController mDemoModeController;
     private final PulseViewController mPulseViewController;
+    private final ChargingAnimationViewController mChargingAnimationViewController;
     private final NotificationsController mNotificationsController;
     private final StatusBarSignalPolicy mStatusBarSignalPolicy;
     private final StatusBarHideIconsForBouncerManager mStatusBarHideIconsForBouncerManager;
@@ -726,10 +728,12 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
             QuickAccessWalletController walletController,
             WindowManager windowManager,
             WindowManagerProvider windowManagerProvider,
-            PulseViewController pulseViewController
+            PulseViewController pulseViewController,
+            ChargingAnimationViewController chargingAnimationViewController
     ) {
         mContext = context;
         mPulseViewController = pulseViewController;
+        mChargingAnimationViewController = chargingAnimationViewController;
         mNotificationsController = notificationsController;
         mFragmentService = fragmentService;
         mLightBarController = lightBarController;
@@ -1110,7 +1114,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
                 (requestTopUi, componentTag) -> mMainExecutor.execute(
                         () -> mTopUiController.setRequestTopUi(requestTopUi, componentTag)
                 )));
-        attachPulseView();
+        attachCustomOverlays();
     }
 
     private ViewGroup getScrimOverlayContainer() {
@@ -1134,9 +1138,10 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
         return container;
     }
 
-    private void attachPulseView() {
+    private void attachCustomOverlays() {
         ViewGroup root = (ViewGroup) getNotificationShadeWindowView();
         detachFromParent(mPulseViewController.getPulseView());
+        detachFromParent(mChargingAnimationViewController.getChargingView());
 
         if (mPulseViewController.getAmbientEnabled()) {
             getScrimOverlayContainer().addView(mPulseViewController.getPulseView(),
@@ -1151,6 +1156,11 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT));
         }
+
+        getScrimOverlayContainer().addView(mChargingAnimationViewController.getChargingView(),
+                new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT));
     }
 
     private static void detachFromParent(View v) {

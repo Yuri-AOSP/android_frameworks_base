@@ -22,17 +22,35 @@ import com.android.systemui.qs.shared.model.TileCategory
 import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.AmbientDisplayTile
 import com.android.systemui.qs.tiles.AODTile
+import com.android.systemui.qs.tiles.BlurTile
+import com.android.systemui.qs.tiles.CPUInfoTile
 import com.android.systemui.qs.tiles.CaffeineTile
+import com.android.systemui.qs.tiles.InfinityMemoryBoostTile
+import com.android.systemui.qs.tiles.CompassTile
+import com.android.systemui.qs.tiles.DataSwitchTile
+import com.android.systemui.qs.tiles.DnsTile
+import com.android.systemui.qs.tiles.FPSInfoTile
 import com.android.systemui.qs.tiles.HeadsUpTile
+import com.android.systemui.qs.tiles.LocaleTile
+import com.android.systemui.qs.tiles.OnTheGoTile
 import com.android.systemui.qs.tiles.PowerShareTile
-import com.android.systemui.qs.tiles.ProfilesTile
+import com.android.systemui.qs.tiles.PreferredNetworkTile
 import com.android.systemui.qs.tiles.ReadingModeTile
+import com.android.systemui.qs.tiles.RefreshRateTile
+import com.android.systemui.qs.tiles.ScreenshotTile
+import com.android.systemui.qs.tiles.SoundTile
 import com.android.systemui.qs.tiles.SyncTile
 import com.android.systemui.qs.tiles.UsbTetherTile
+import com.android.systemui.qs.tiles.VPNTetheringTile
+import com.android.systemui.qs.tiles.VolumeQSTile
+import com.android.systemui.qs.tiles.VolumeTile
 import com.android.systemui.qs.tiles.VpnTile
+import com.android.systemui.qs.tiles.WeatherTile
+import com.android.systemui.qs.tiles.SleepModeTile
 import com.android.systemui.qs.tiles.base.shared.model.QSTileConfig
 import com.android.systemui.qs.tiles.base.shared.model.QSTileUIConfig
 import com.android.systemui.res.R
+import com.android.systemui.smartpixel.ui.SmartPixelTile
 
 import dagger.Binds
 import dagger.Module
@@ -54,11 +72,53 @@ interface LineageModule {
     @StringKey(AODTile.TILE_SPEC)
     fun bindAODTile(aodTile: AODTile): QSTileImpl<*>
 
+    /** Inject BlurTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(BlurTile.TILE_SPEC)
+    fun bindBlurTile(blurTile: BlurTile): QSTileImpl<*>
+
+    /** Inject CPUInfoTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(CPUInfoTile.TILE_SPEC)
+    fun CPUInfoTile(cpuInfoTile: CPUInfoTile): QSTileImpl<*>
+
+    /** Inject SleepModeTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(SleepModeTile.TILE_SPEC)
+    fun bindSleepModeTile(sleepModeTile: SleepModeTile): QSTileImpl<*>
+
     /** Inject CaffeineTile into tileMap in QSModule */
     @Binds
     @IntoMap
     @StringKey(CaffeineTile.TILE_SPEC)
     fun bindCaffeineTile(caffeineTile: CaffeineTile): QSTileImpl<*>
+
+    /** Inject CompassTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(CompassTile.TILE_SPEC)
+    fun bindCompassTile(compassTile: CompassTile): QSTileImpl<*>
+
+    /** Inject DataSwitchTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(DataSwitchTile.TILE_SPEC)
+    fun bindDataSwitchTile(dataSwitchTile: DataSwitchTile): QSTileImpl<*>
+
+    /** Inject DnsTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(DnsTile.TILE_SPEC)
+    fun bindDnsTile(dnsTile: DnsTile): QSTileImpl<*>
+
+    /** Inject FPSInfoTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(FPSInfoTile.TILE_SPEC)
+    fun FPSInfoTile(fpsInfoTile: FPSInfoTile): QSTileImpl<*>
 
     /** Inject HeadsUpTile into tileMap in QSModule */
     @Binds
@@ -66,23 +126,65 @@ interface LineageModule {
     @StringKey(HeadsUpTile.TILE_SPEC)
     fun bindHeadsUpTile(headsUpTile: HeadsUpTile): QSTileImpl<*>
 
+    /** Inject LocaleTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(LocaleTile.TILE_SPEC)
+    fun bindLocaleTile(localeTile: LocaleTile): QSTileImpl<*>
+
+    /** Inject InfinityMemoryBoostTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(InfinityMemoryBoostTile.TILE_SPEC)
+    fun bindInfinityMemoryBoostTile(infinityMemoryBoostTile: InfinityMemoryBoostTile): QSTileImpl<*>
+
+    /** Inject OnTheGoTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(OnTheGoTile.TILE_SPEC)
+    fun bindOnTheGoTile(onTheGoTile: OnTheGoTile): QSTileImpl<*>
+
     /** Inject PowerShareTile into tileMap in QSModule */
     @Binds
     @IntoMap
     @StringKey(PowerShareTile.TILE_SPEC)
     fun bindPowerShareTile(powerShareTile: PowerShareTile): QSTileImpl<*>
 
-    /** Inject ProfilesTile into tileMap in QSModule */
+    /** Inject PreferredNetworkTile into tileMap in QSModule */
     @Binds
     @IntoMap
-    @StringKey(ProfilesTile.TILE_SPEC)
-    fun bindProfilesTile(profilesTile: ProfilesTile): QSTileImpl<*>
+    @StringKey(PreferredNetworkTile.TILE_SPEC)
+    fun bindPreferredNetworkTile(preferredNetworkTile: PreferredNetworkTile): QSTileImpl<*>
 
     /** Inject ReadingModeTile into tileMap in QSModule */
     @Binds
     @IntoMap
     @StringKey(ReadingModeTile.TILE_SPEC)
     fun bindReadingModeTile(readingModeTile: ReadingModeTile): QSTileImpl<*>
+
+    /** Inject RefreshRateTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(RefreshRateTile.TILE_SPEC)
+    fun bindRefreshRateTile(refreshRateTile: RefreshRateTile): QSTileImpl<*>
+
+    /** Inject ScreenshotTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(ScreenshotTile.TILE_SPEC)
+    fun bindScreenshotTile(screenshotTile: ScreenshotTile): QSTileImpl<*>
+
+    /** Inject SmartPixelTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(SmartPixelTile.TILE_SPEC)
+    abstract fun bindSmartPixelTile(tile: SmartPixelTile): QSTileImpl<*>
+
+    /** Inject SoundTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(SoundTile.TILE_SPEC)
+    fun bindSoundTile(soundTile: SoundTile): QSTileImpl<*>
 
     /** Inject SyncTile into tileMap in QSModule */
     @Binds
@@ -217,6 +319,66 @@ interface LineageModule {
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(RefreshRateTile.TILE_SPEC)
+        fun provideRefreshRateTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(RefreshRateTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_refresh_rate,
+                        labelRes = R.string.refresh_rate_tile_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(ScreenshotTile.TILE_SPEC)
+        fun provideScreenshotTile(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(ScreenshotTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = com.android.internal.R.drawable.ic_screenshot,
+                        labelRes = com.android.internal.R.string.global_action_screenshot
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(SmartPixelTile.TILE_SPEC)
+        fun provideSmartPixelsTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(SmartPixelTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.qs_smart_pixels_icon_off,
+                        labelRes = R.string.quick_settings_smart_pixels_label,
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.DISPLAY,
+            )
+
+        @Provides
+        @IntoMap
+        @StringKey(SoundTile.TILE_SPEC)
+        fun provideSoundConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(SoundTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_ringer_audible,
+                        labelRes = R.string.quick_settings_sound_label
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
             )
 
         @Provides

@@ -13893,6 +13893,18 @@ public final class Settings {
          */
         public static final String IDENTITY_CHECK_NOTIFICATION_VIEW_DETAILS_CLICKED =
                 "identity_check_notification_view_details_clicked";
+
+        /**
+         * Whether to enable Smart Pixels
+         * @hide
+         */
+        public static final String SMART_PIXEL_FILTER_ENABLED = "smart_pixel_filter_enabled";
+
+        /**
+         * Smart Pixels percentage
+         * @hide
+         */
+        public static final String SMART_PIXEL_FILTER_PERCENT = "smart_pixel_filter_percent";
     }
 
     /**

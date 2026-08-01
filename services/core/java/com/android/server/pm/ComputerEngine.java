@@ -68,6 +68,7 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.UserIdInt;
 import android.app.ActivityManager;
+import android.app.ActivityManagerInternal;
 import android.app.admin.DevicePolicyManagerInternal;
 import android.companion.virtual.VirtualDeviceManager;
 import android.content.ComponentName;
@@ -141,6 +142,7 @@ import com.android.internal.util.Preconditions;
 import com.android.modules.utils.TypedXmlSerializer;
 import com.android.server.LocalManagerRegistry;
 import com.android.server.ondeviceintelligence.OnDeviceIntelligenceManagerLocal;
+import com.android.server.LocalServices;
 import com.android.server.pm.parsing.PackageInfoUtils;
 import com.android.server.pm.parsing.pkg.AndroidPackageUtils;
 import com.android.server.pm.permission.PermissionManagerServiceInternal;
@@ -161,6 +163,7 @@ import com.android.server.utils.WatchedLongSparseArray;
 import com.android.server.utils.WatchedSparseBooleanArray;
 import com.android.server.utils.WatchedSparseIntArray;
 import com.android.server.wm.ActivityTaskManagerInternal;
+import com.android.server.wm.AxSandboxService;
 
 import libcore.util.EmptyArray;
 
@@ -480,6 +483,168 @@ public class ComputerEngine implements Computer {
         // Used to reference PMS attributes that are primitives and which are not
         // updated under control of the PMS lock.
         mService = args.service;
+    }
+
+    private static final Set<String> PACKAGES_SHOULD_NOT_HIDE = Set.of(
+            "android",
+            "android.media",
+            "android.uid.system",
+            "android.uid.shell",
+            "android.uid.systemui",
+            "com.android.permissioncontroller",
+            "com.android.providers.downloads",
+            "com.android.providers.downloads.ui",
+            "com.android.providers.media",
+            "com.android.providers.media.module",
+            "com.android.providers.settings",
+            "com.google.android.webview",
+            "com.google.android.providers.media.module"
+    );
+    
+    private ActivityManagerInternal sActivityManagerInternal = null;
+    
+    private ActivityManagerInternal getAmInternal() {
+        if (sActivityManagerInternal == null) {
+            sActivityManagerInternal = LocalServices.getService(ActivityManagerInternal.class);
+        }
+        return sActivityManagerInternal;
+    }
+    
+    private boolean isSystemReady() {
+        final ActivityManagerInternal ami = getAmInternal();
+        if (ami == null || !ami.isBooted()) {
+            return false;
+        }
+        return true;
+    }
+
+    private boolean shouldHideFromCaller(int callingUid, String targetPackage) {
+        if (!isSystemReady()) return false;
+
+        if (targetPackage == null) return false;
+
+        if (!AxSandboxService.get().isPackageHidden(targetPackage)) return false;
+
+        if (PACKAGES_SHOULD_NOT_HIDE.contains(targetPackage)) return false;
+
+        if (Process.isIsolated(callingUid) || Process.isSdkSandboxUid(callingUid)) {
+            return false;
+        }
+
+        if (callingUid == Process.SYSTEM_UID || callingUid == Process.ROOT_UID) {
+            return false;
+        }
+
+        String callingPkg = null;
+        int callingPid = Binder.getCallingPid();
+        
+        final ActivityManagerInternal ami = getAmInternal();
+        if (ami != null) {
+            callingPkg = ami.getPackageNameByPid(callingPid);
+        }
+
+        if (callingPkg == null || TextUtils.isEmpty(callingPkg)) {
+            return false;
+        }
+
+        if (PACKAGES_SHOULD_NOT_HIDE.contains(callingPkg)) return false;
+
+        if (AxSandboxService.BLACKLISTED_PACKAGES.contains(callingPkg)) return false;
+
+        if (callingPkg.equals(targetPackage)) return false;
+
+        return true;
+    }
+
+    private static final int SPOOF_INSTALL_DISABLED = 0;
+    private static final int SPOOF_INSTALL_USER = 1;
+    private static final int SPOOF_INSTALL_SYSTEM = 2;
+    private static final String VENDING_PACKAGE = "com.android.vending";
+
+    private int shouldSpoofInstallSource(int callingUid, String targetPackage) {
+        if (!isSystemReady()) return SPOOF_INSTALL_DISABLED;
+        if (targetPackage == null) return SPOOF_INSTALL_DISABLED;
+        if (!AxSandboxService.get().isPackageHidden(targetPackage)) return SPOOF_INSTALL_DISABLED;
+        if (callingUid == Process.SYSTEM_UID || callingUid == Process.ROOT_UID)
+            return SPOOF_INSTALL_DISABLED;
+        if (Process.isIsolated(callingUid) || Process.isSdkSandboxUid(callingUid))
+            return SPOOF_INSTALL_DISABLED;
+
+        String callingPkg = null;
+        final ActivityManagerInternal ami = getAmInternal();
+        if (ami != null) {
+            callingPkg = ami.getPackageNameByPid(Binder.getCallingPid());
+        }
+        if (callingPkg == null) return SPOOF_INSTALL_DISABLED;
+        if (AxSandboxService.BLACKLISTED_PACKAGES.contains(callingPkg)) return SPOOF_INSTALL_DISABLED;
+        if (callingPkg.equals(targetPackage)) return SPOOF_INSTALL_DISABLED;
+
+        final PackageStateInternal ps = mSettings.getPackage(targetPackage);
+        if (ps != null && ps.isSystem()) {
+            return SPOOF_INSTALL_SYSTEM;
+        }
+        return SPOOF_INSTALL_USER;
+    }
+
+    private final boolean isAppDetached(String packageName) {
+        if (!isSystemReady()) return false;
+
+        if (packageName == null || TextUtils.isEmpty(packageName)) {
+            return false;
+        }
+
+        if (!AxSandboxService.get().isPackageSandboxed(packageName)) {
+            return false;
+        }
+
+        final int callingUid = Binder.getCallingUid();
+
+        String callingPackage = null;
+        int callingPid = Binder.getCallingPid();
+        final ActivityManagerInternal ami = getAmInternal();
+        if (ami != null) {
+            callingPackage = ami.getPackageNameByPid(callingPid);
+        }
+
+        if (callingPackage == null || TextUtils.isEmpty(callingPackage)) {
+            return false;
+        }
+
+        boolean isFinsky = callingPackage.contains("com.android.vending");
+
+        if (isFinsky) return true;
+
+        if (packageName == null || TextUtils.isEmpty(packageName)) {
+            return false;
+        }
+
+        if (callingPackage.contains(packageName)) return false;
+
+        if (packageName.contains("youtube")
+            || packageName.contains("microg")
+            || packageName.contains("revanced")
+            || packageName.contains("gms")) {
+            return false;
+        }
+
+        return !isCallerSystem(callingUid)
+            && !Process.isIsolated(callingUid)
+            && !Process.isSdkSandboxUid(callingUid);
+    }
+
+    private final boolean isCallerSystem(int callingUid) {
+        if (isSystemOrRootOrShell(callingUid)) {
+            return true;
+        }
+        final SettingBase callingPs = mSettings.getSettingBase(UserHandle.getAppId(callingUid));
+        if (callingPs == null) return false;
+        final int callingFlags = callingPs.getFlags();
+        if (((callingFlags & ApplicationInfo.FLAG_SYSTEM) == ApplicationInfo.FLAG_SYSTEM)
+                || ((callingFlags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)
+                        == ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) {
+            return true;
+        }
+        return false;
     }
 
     @Override

@@ -110,13 +110,13 @@ import com.android.systemui.statusbar.policy.CastController;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.policy.SplitShadeStateController;
 import com.android.systemui.tuner.TunerService;
+import com.android.systemui.user.domain.interactor.SelectedUserInteractor;
 import com.android.systemui.util.LargeScreenUtils;
 import com.android.systemui.util.ScrimUtils;
 import com.android.systemui.util.kotlin.JavaAdapter;
 import com.android.systemui.utils.windowmanager.WindowManagerProvider;
 
 import com.android.systemui.applocker.AxAppLockerHelper;
-import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
 import android.service.notification.StatusBarNotification;
 import android.view.View;

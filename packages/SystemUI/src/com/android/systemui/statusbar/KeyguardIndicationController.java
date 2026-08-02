@@ -25,6 +25,7 @@ import static android.hardware.biometrics.BiometricSourceType.FACE;
 import static android.hardware.biometrics.BiometricSourceType.FINGERPRINT;
 import static android.security.Flags.secureLockDevice;
 import static android.view.View.GONE;
+import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 
 import static com.android.keyguard.KeyguardUpdateMonitor.BIOMETRIC_HELP_FACE_NOT_AVAILABLE;
@@ -68,8 +69,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.util.Pair;
@@ -125,11 +128,15 @@ import com.android.systemui.util.AlarmTimeout;
 import com.android.systemui.util.concurrency.DelayableExecutor;
 import com.android.systemui.util.wakelock.SettableWakeLock;
 import com.android.systemui.util.wakelock.WakeLock;
+import com.android.systemui.util.ScrimUtils;
 
 import dagger.Lazy;
 
 import java.io.PrintWriter;
 import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -208,6 +215,7 @@ public class KeyguardIndicationController {
     private BiometricSourceType mBiometricMessageSource;
     private ColorStateList mInitialTextColorState;
     private boolean mVisible;
+    private boolean mSuppressIndication;
     private boolean mOrganizationOwnedDevice;
 
     // these all assume the device is plugged in (wired/wireless/docked) AND chargingOrFull:
@@ -289,6 +297,29 @@ public class KeyguardIndicationController {
     private final DeviceEntryBiometricSettingsInteractor mDeviceEntryBiometricSettingsInteractor;
     private AuthenticationFlags mAuthenticationFlags;
 
+    public interface IndicationListener {
+        void onIndicationUpdated(int type, @Nullable CharSequence text);
+    }
+    public static final int AX_TYPE_BIOMETRIC = 0;
+    public static final int AX_TYPE_TRANSIENT = 1;
+    public static final int AX_TYPE_TRUST = 2;
+    public static final int AX_TYPE_DISCLOSURE = 3;
+    public static final int AX_TYPE_OWNER_INFO = 4;
+    public static final int AX_TYPE_ALIGNMENT = 5;
+    public static final int AX_TYPE_PERSISTENT_UNLOCK = 6;
+    private final java.util.List<IndicationListener> mIndicationListeners =
+            new java.util.ArrayList<>();
+    public void addIndicationListener(IndicationListener listener) {
+        mIndicationListeners.add(listener);
+    }
+    public void removeIndicationListener(IndicationListener listener) {
+        mIndicationListeners.remove(listener);
+    }
+    private void notifyIndicationListeners(int type, @Nullable CharSequence text) {
+        for (IndicationListener listener : mIndicationListeners) {
+            listener.onIndicationUpdated(type, text);
+        }
+    }
     /**
      * Creates a new KeyguardIndicationController and registers callbacks.
      */
@@ -402,6 +433,7 @@ public class KeyguardIndicationController {
         mKeyguardStateController.addCallback(mKeyguardStateCallback);
 
         mStatusBarStateListener.onDozingChanged(mStatusBarStateController.isDozing());
+
     }
 
     @Nullable
@@ -582,11 +614,13 @@ public class KeyguardIndicationController {
                                       .setTextColor(getInitialTextColorState())
                                       .build(),
                               /* updateImmediately */ false);
+                        notifyIndicationListeners(AX_TYPE_DISCLOSURE, disclosure);
                     }
                 });
             });
         } else {
             mRotateTextViewController.hideIndication(INDICATION_TYPE_DISCLOSURE);
+            notifyIndicationListeners(AX_TYPE_DISCLOSURE, null);
         }
     }
 
@@ -638,8 +672,10 @@ public class KeyguardIndicationController {
                                     .setTextColor(getInitialTextColorState())
                                     .build(),
                             false);
+                    notifyIndicationListeners(AX_TYPE_OWNER_INFO, finalInfo);
                 } else {
                     mRotateTextViewController.hideIndication(INDICATION_TYPE_OWNER_INFO);
+                    notifyIndicationListeners(AX_TYPE_OWNER_INFO, null);
                 }
             });
         });
@@ -703,9 +739,11 @@ public class KeyguardIndicationController {
                             .build(),
                     true
             );
+            notifyIndicationListeners(AX_TYPE_BIOMETRIC, mBiometricMessage);
         } else {
             mRotateTextViewController.hideIndication(
                     INDICATION_TYPE_BIOMETRIC_MESSAGE);
+            notifyIndicationListeners(AX_TYPE_BIOMETRIC, null);
         }
         if (!TextUtils.isEmpty(mBiometricMessageFollowUp)) {
             mRotateTextViewController.updateIndication(
@@ -731,8 +769,10 @@ public class KeyguardIndicationController {
 
         if (!TextUtils.isEmpty(mTransientIndication)) {
             mRotateTextViewController.showTransient(mTransientIndication);
+            notifyIndicationListeners(AX_TYPE_TRANSIENT, mTransientIndication);
         } else {
             mRotateTextViewController.hideTransient();
+            notifyIndicationListeners(AX_TYPE_TRANSIENT, null);
         }
     }
 
@@ -747,6 +787,7 @@ public class KeyguardIndicationController {
                             .setTextColor(getInitialTextColorState())
                             .build(),
                     true);
+            notifyIndicationListeners(AX_TYPE_TRUST, trustGrantedIndication);
             hideBiometricMessage();
         } else if (!TextUtils.isEmpty(trustManagedIndication)
                 && mKeyguardUpdateMonitor.getUserTrustIsManaged(userId)
@@ -758,8 +799,10 @@ public class KeyguardIndicationController {
                             .setTextColor(getInitialTextColorState())
                             .build(),
                     false);
+            notifyIndicationListeners(AX_TYPE_TRUST, trustManagedIndication);
         } else {
             mRotateTextViewController.hideIndication(INDICATION_TYPE_TRUST);
+            notifyIndicationListeners(AX_TYPE_TRUST, null);
         }
     }
 
@@ -773,8 +816,10 @@ public class KeyguardIndicationController {
                                     mContext.getColor(R.color.misalignment_text_color)))
                             .build(),
                     true);
+            notifyIndicationListeners(AX_TYPE_ALIGNMENT, mAlignmentIndication);
         } else {
             mRotateTextViewController.hideIndication(INDICATION_TYPE_ALIGNMENT);
+            notifyIndicationListeners(AX_TYPE_ALIGNMENT, null);
         }
     }
 
@@ -787,8 +832,10 @@ public class KeyguardIndicationController {
                             .setTextColor(getInitialTextColorState())
                             .build(),
                     true);
+            notifyIndicationListeners(AX_TYPE_PERSISTENT_UNLOCK, mPersistentUnlockMessage);
         } else {
             mRotateTextViewController.hideIndication(INDICATION_TYPE_PERSISTENT_UNLOCK_MESSAGE);
+            notifyIndicationListeners(AX_TYPE_PERSISTENT_UNLOCK, null);
         }
     }
 
@@ -899,6 +946,18 @@ public class KeyguardIndicationController {
         return UserHandle.USER_NULL;
     }
 
+    public void setSuppressIndication(boolean suppress) {
+        mSuppressIndication = suppress;
+        if (mTopIndicationView != null) {
+            mTopIndicationView.setSuppressVisibility(suppress);
+        }
+        if (mLockScreenIndicationView != null) {
+            mLockScreenIndicationView.setSuppressVisibility(suppress);
+        }
+        if (!suppress && mVisible) {
+            updateDeviceEntryIndication(false);
+        }
+    }
     /**
      * Sets the visibility of keyguard bottom area, and if the indications are updatable.
      *

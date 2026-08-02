@@ -25,15 +25,18 @@ import android.content.res.Configuration
 import android.database.ExecutorContentObserver
 import android.hardware.SensorPrivacyManager
 import android.hardware.usb.UsbManager
+import android.media.AudioManager
 import android.media.MediaMetadata
 import android.media.session.PlaybackState
 import android.nfc.NfcAdapter
 import android.os.Bundle
 import android.os.RemoteException
 import android.os.UserHandle
+import android.os.Vibrator
 import android.provider.Settings
-import android.util.Log
+import com.android.axion.platform.AxFeatureState
 import com.android.axion.platform.AxPlatformClient
+import com.android.axion.platform.AxPlatformFeature
 import com.android.settingslib.bluetooth.LocalBluetoothManager
 import com.android.systemui.broadcast.BroadcastDispatcher
 import com.android.systemui.dagger.SysUISingleton
@@ -42,7 +45,10 @@ import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.dagger.qualifiers.Main
 import com.android.systemui.media.NotificationMediaManager
+import com.android.systemui.plugins.keyguard.ui.clocks.CalendarSimpleData
+import com.android.systemui.plugins.keyguard.ui.clocks.ClockData
 import com.android.systemui.plugins.statusbar.StatusBarStateController
+import com.android.systemui.quicklook.QuickLookClient
 import com.android.systemui.screenrecord.ScreenRecordUxController
 import com.android.systemui.statusbar.StatusBarState
 import com.android.systemui.statusbar.connectivity.AccessPointController
@@ -106,6 +112,7 @@ class AxPlatformObservers @Inject constructor(
     private val localBluetoothManager: LocalBluetoothManager?,
     private val notificationMediaManager: NotificationMediaManager,
     private val nextAlarmController: NextAlarmController,
+    private val quickLookClient: QuickLookClient,
     private val configurationController: ConfigurationController,
     private val statusBarStateController: StatusBarStateController,
     private val keyguardStateController: KeyguardStateController,
@@ -123,6 +130,8 @@ class AxPlatformObservers @Inject constructor(
     private var lastMediaArtist: String? = null
     private var lastMediaPackage: String? = null
     private var lastMobileDataEnabled: Boolean? = null
+    private val audioManager: AudioManager? = context.getSystemService(AudioManager::class.java)
+    private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
     private val wifiStateFlow = MutableSharedFlow<Bundle>(
         replay = 0, extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST
@@ -134,12 +143,12 @@ class AxPlatformObservers @Inject constructor(
     init {
         scope.launch(bgDispatcher) {
             wifiStateFlow.collect { bundle ->
-                stateManager.broadcastState(AxPlatformClient.FEATURE_WIFI, bundle)
+                stateManager.broadcastState(AxPlatformFeature.WIFI, bundle)
             }
         }
         scope.launch(bgDispatcher) {
             mobileStateFlow.collect { bundle ->
-                stateManager.broadcastState(AxPlatformClient.FEATURE_MOBILE_DATA, bundle)
+                stateManager.broadcastState(AxPlatformFeature.MOBILE_DATA, bundle)
             }
         }
     }
@@ -147,6 +156,7 @@ class AxPlatformObservers @Inject constructor(
     fun registerAll() {
         registerControllerCallbacks()
         registerSettingsObservers()
+        registerRingerMode()
         registerNfc()
         registerBatteryFlow()
         registerSensorPrivacy()
@@ -176,6 +186,7 @@ class AxPlatformObservers @Inject constructor(
         dataSaverController.addCallback(dataSaverCallback)
         notificationMediaManager.addCallback(mediaListener)
         nextAlarmController.addCallback(nextAlarmCallback)
+        quickLookClient.addCallback(quickLookCallback)
         configurationController.addCallback(configurationListener)
         statusBarStateController.addCallback(dozeCallback)
         keyguardStateController.addCallback(keyguardCallback)
@@ -185,43 +196,44 @@ class AxPlatformObservers @Inject constructor(
     }
 
     private fun registerSettingsObservers() {
-        stateManager.observeSecure(Settings.Secure.DOZE_ALWAYS_ON, AxPlatformClient.FEATURE_AOD)
+        stateManager.observeSecure(Settings.Secure.DOZE_ALWAYS_ON, AxPlatformFeature.AOD)
+        stateManager.observeSecure(Settings.Secure.DOZE_ENABLED, AxPlatformFeature.AMBIENT_DISPLAY)
         stateManager.observeSecure(
             Settings.Secure.ACCESSIBILITY_DISPLAY_INVERSION_ENABLED,
-            AxPlatformClient.FEATURE_COLOR_INVERSION
+            AxPlatformFeature.COLOR_INVERSION
         )
         stateManager.observeSecure(
             Settings.Secure.ACCESSIBILITY_DISPLAY_DALTONIZER_ENABLED,
-            AxPlatformClient.FEATURE_COLOR_CORRECTION
+            AxPlatformFeature.COLOR_CORRECTION
         )
         stateManager.observeSecure(
             AxPlatformFeatureController.SETTING_REDUCE_BRIGHT,
-            AxPlatformClient.FEATURE_REDUCE_BRIGHTNESS
+            AxPlatformFeature.REDUCE_BRIGHTNESS
         )
         stateManager.observeSecure(
             AxPlatformFeatureController.SETTING_NIGHT_DISPLAY,
-            AxPlatformClient.FEATURE_NIGHT_LIGHT
+            AxPlatformFeature.NIGHT_LIGHT
         )
         stateManager.observeSecure(
             AxPlatformFeatureController.SETTING_ONE_HANDED,
-            AxPlatformClient.FEATURE_ONE_HANDED_MODE
+            AxPlatformFeature.ONE_HANDED_MODE
         )
         stateManager.observeGlobal(
             Settings.Global.AIRPLANE_MODE_ON,
-            AxPlatformClient.FEATURE_AIRPLANE_MODE
+            AxPlatformFeature.AIRPLANE_MODE
         )
         stateManager.observeGlobal(
             Settings.Global.HEADS_UP_NOTIFICATIONS_ENABLED,
-            AxPlatformClient.FEATURE_HEADS_UP
+            AxPlatformFeature.HEADS_UP
         )
         stateManager.broadcastBool(
-            AxPlatformClient.FEATURE_AUTO_SYNC,
+            AxPlatformFeature.AUTO_SYNC,
             ContentResolver.getMasterSyncAutomatically()
         )
         ContentResolver.addStatusChangeListener(ContentResolver.SYNC_OBSERVER_TYPE_SETTINGS) {
             mainExecutor.execute {
                 stateManager.broadcastBool(
-                    AxPlatformClient.FEATURE_AUTO_SYNC,
+                    AxPlatformFeature.AUTO_SYNC,
                     ContentResolver.getMasterSyncAutomatically()
                 )
             }
@@ -230,13 +242,59 @@ class AxPlatformObservers @Inject constructor(
 
     private fun registerNfc() {
         val nfcAdapter = NfcAdapter.getDefaultAdapter(context) ?: return
-        stateManager.broadcastBool(AxPlatformClient.FEATURE_NFC, nfcAdapter.isEnabled)
+        stateManager.broadcastBool(AxPlatformFeature.NFC, nfcAdapter.isEnabled)
         broadcastDispatcher.registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
-                stateManager.broadcastBool(AxPlatformClient.FEATURE_NFC, nfcAdapter.isEnabled)
+                stateManager.broadcastBool(AxPlatformFeature.NFC, nfcAdapter.isEnabled)
             }
         }, IntentFilter(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED))
     }
+
+    private fun registerRingerMode() {
+        audioManager ?: return
+        broadcastRingerMode()
+        val filter = IntentFilter().apply {
+            addAction(AudioManager.INTERNAL_RINGER_MODE_CHANGED_ACTION)
+            addAction(AudioManager.RINGER_MODE_CHANGED_ACTION)
+        }
+        broadcastDispatcher.registerReceiver(object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context, intent: Intent) {
+                broadcastRingerMode()
+            }
+        }, filter)
+    }
+
+    private fun broadcastRingerMode() {
+        val manager = audioManager ?: return
+        val mode = manager.ringerModeInternal
+        val modes = availableRingerModes()
+        stateManager.broadcastFeatureState(
+            AxPlatformFeature.RINGER_MODE,
+            AxFeatureState.newBuilder()
+                .setEnabled(mode == AudioManager.RINGER_MODE_NORMAL)
+                .setActive(mode == AudioManager.RINGER_MODE_NORMAL)
+                .setAvailable(true)
+                .setHasVibrator(modes.contains(AudioManager.RINGER_MODE_VIBRATE))
+                .putInt("mode", mode)
+                .setRingerMode(mode)
+                .putIntArray("availableModes", modes)
+                .build()
+        )
+    }
+
+    private fun availableRingerModes(): IntArray =
+        if (vibrator?.hasVibrator() == true) {
+            intArrayOf(
+                AudioManager.RINGER_MODE_NORMAL,
+                AudioManager.RINGER_MODE_VIBRATE,
+                AudioManager.RINGER_MODE_SILENT
+            )
+        } else {
+            intArrayOf(
+                AudioManager.RINGER_MODE_NORMAL,
+                AudioManager.RINGER_MODE_SILENT
+            )
+        }
 
     private fun registerBatteryFlow() {
         scope.launch {
@@ -267,13 +325,13 @@ class AxPlatformObservers @Inject constructor(
         sensorPrivacyController.addCallback(sensorPrivacyCallback)
         if (sensorPrivacyController.supportsSensorToggle(SensorPrivacyManager.Sensors.CAMERA)) {
             stateManager.broadcastBool(
-                AxPlatformClient.FEATURE_CAMERA_PRIVACY,
+                AxPlatformFeature.CAMERA_PRIVACY,
                 sensorPrivacyController.isSensorBlocked(SensorPrivacyManager.Sensors.CAMERA)
             )
         }
         if (sensorPrivacyController.supportsSensorToggle(SensorPrivacyManager.Sensors.MICROPHONE)) {
             stateManager.broadcastBool(
-                AxPlatformClient.FEATURE_MIC_PRIVACY,
+                AxPlatformFeature.MIC_PRIVACY,
                 sensorPrivacyController.isSensorBlocked(SensorPrivacyManager.Sensors.MICROPHONE)
             )
         }
@@ -292,7 +350,7 @@ class AxPlatformObservers @Inject constructor(
                 val ncm = intent.getBooleanExtra(UsbManager.USB_FUNCTION_NCM, false)
                 val tethering = rndis || ncm
                 stateManager.broadcastState(
-                    AxPlatformClient.FEATURE_USB_TETHER,
+                    AxPlatformFeature.USB_TETHER,
                     Bundle().apply {
                         putBoolean("enabled", tethering)
                         putBoolean("active", tethering)
@@ -329,7 +387,7 @@ class AxPlatformObservers @Inject constructor(
         val hw = featureController.lineageHardware ?: return
         if (!hw.isSupported(LineageHardwareManager.FEATURE_READING_ENHANCEMENT)) return
         stateManager.broadcastBool(
-            AxPlatformClient.FEATURE_READING_MODE,
+            AxPlatformFeature.READING_MODE,
             hw.get(LineageHardwareManager.FEATURE_READING_ENHANCEMENT)
         )
     }
@@ -338,7 +396,7 @@ class AxPlatformObservers @Inject constructor(
         if (!batteryController.isReverseSupported) return
         batteryController.addCallback(powerShareCallback)
         stateManager.broadcastBool(
-            AxPlatformClient.FEATURE_POWER_SHARE,
+            AxPlatformFeature.POWER_SHARE,
             batteryController.isReverseOn
         )
     }
@@ -385,7 +443,7 @@ class AxPlatformObservers @Inject constructor(
         override fun setNoSims(show: Boolean, simDetected: Boolean) {
             if (!simDetected) {
                 stateManager.broadcastState(
-                    AxPlatformClient.FEATURE_MOBILE_DATA,
+                    AxPlatformFeature.MOBILE_DATA,
                     Bundle().apply {
                         putBoolean("available", false)
                         putBoolean("enabled", false)
@@ -444,7 +502,7 @@ class AxPlatformObservers @Inject constructor(
             })
         }
         val hasConnected = devices.any { it.isConnected() }
-        stateManager.broadcastState(AxPlatformClient.FEATURE_BLUETOOTH, Bundle().apply {
+        stateManager.broadcastState(AxPlatformFeature.BLUETOOTH, Bundle().apply {
             putBoolean("enabled", enabled)
             putBoolean("active", enabled)
             putBoolean("hasConnectedDevice", hasConnected)
@@ -454,7 +512,7 @@ class AxPlatformObservers @Inject constructor(
 
     private val hotspotCallback = object : HotspotController.Callback {
         override fun onHotspotChanged(enabled: Boolean, numDevices: Int) {
-            stateManager.broadcastState(AxPlatformClient.FEATURE_HOTSPOT, Bundle().apply {
+            stateManager.broadcastState(AxPlatformFeature.HOTSPOT, Bundle().apply {
                 putBoolean("enabled", enabled)
                 putBoolean("active", enabled)
                 putInt("numDevices", numDevices)
@@ -464,7 +522,7 @@ class AxPlatformObservers @Inject constructor(
 
     private val flashlightCallback = object : FlashlightController.FlashlightListener {
         override fun onFlashlightChanged(enabled: Boolean) {
-            stateManager.broadcastState(AxPlatformClient.FEATURE_FLASHLIGHT, Bundle().apply {
+            stateManager.broadcastState(AxPlatformFeature.FLASHLIGHT, Bundle().apply {
                 putBoolean("enabled", enabled)
                 putBoolean("active", enabled)
                 putBoolean("available", true)
@@ -475,15 +533,13 @@ class AxPlatformObservers @Inject constructor(
 
         override fun onFlashlightAvailabilityChanged(available: Boolean) {
             if (!available) {
-                stateManager.broadcastState(AxPlatformClient.FEATURE_FLASHLIGHT, Bundle().apply {
+                stateManager.broadcastState(AxPlatformFeature.FLASHLIGHT, Bundle().apply {
                     putBoolean("enabled", false)
                     putBoolean("active", false)
                     putBoolean("available", false)
                 })
             }
         }
-
-        override fun onFlashlightStrengthChanged(level: Int) {}
     }
 
     private val rotationCallback =
@@ -492,7 +548,7 @@ class AxPlatformObservers @Inject constructor(
                 rotationLocked: Boolean,
                 affordanceVisible: Boolean
             ) {
-                stateManager.broadcastState(AxPlatformClient.FEATURE_ROTATION, Bundle().apply {
+                stateManager.broadcastState(AxPlatformFeature.ROTATION, Bundle().apply {
                     putBoolean("locked", rotationLocked)
                     putBoolean("active", !rotationLocked)
                 })
@@ -501,19 +557,19 @@ class AxPlatformObservers @Inject constructor(
 
     private val locationCallback = object : LocationController.LocationChangeCallback {
         override fun onLocationSettingsChanged(locationEnabled: Boolean) {
-            stateManager.broadcastBool(AxPlatformClient.FEATURE_LOCATION, locationEnabled)
+            stateManager.broadcastBool(AxPlatformFeature.LOCATION, locationEnabled)
         }
     }
 
     private val batteryCallback = object : BatteryController.BatteryStateChangeCallback {
         override fun onPowerSaveChanged(isPowerSave: Boolean) {
-            stateManager.broadcastBool(AxPlatformClient.FEATURE_BATTERY_SAVER, isPowerSave)
+            stateManager.broadcastBool(AxPlatformFeature.BATTERY_SAVER, isPowerSave)
         }
     }
 
     private val zenCallback = object : ZenModeController.Callback {
         override fun onZenChanged(zen: Int) {
-            stateManager.broadcastState(AxPlatformClient.FEATURE_ZEN, Bundle().apply {
+            stateManager.broadcastState(AxPlatformFeature.ZEN, Bundle().apply {
                 putInt("mode", zen)
                 putBoolean("active", zen != 0)
             })
@@ -522,7 +578,7 @@ class AxPlatformObservers @Inject constructor(
 
     private val dataSaverCallback = object : DataSaverController.Listener {
         override fun onDataSaverChanged(isDataSaving: Boolean) {
-            stateManager.broadcastBool(AxPlatformClient.FEATURE_DATA_SAVER, isDataSaving)
+            stateManager.broadcastBool(AxPlatformFeature.DATA_SAVER, isDataSaving)
         }
     }
 
@@ -532,11 +588,11 @@ class AxPlatformObservers @Inject constructor(
                 when (sensor) {
                     SensorPrivacyManager.Sensors.CAMERA ->
                         stateManager.broadcastBool(
-                            AxPlatformClient.FEATURE_CAMERA_PRIVACY, blocked
+                            AxPlatformFeature.CAMERA_PRIVACY, blocked
                         )
                     SensorPrivacyManager.Sensors.MICROPHONE ->
                         stateManager.broadcastBool(
-                            AxPlatformClient.FEATURE_MIC_PRIVACY, blocked
+                            AxPlatformFeature.MIC_PRIVACY, blocked
                         )
                 }
             }
@@ -546,7 +602,7 @@ class AxPlatformObservers @Inject constructor(
         override fun onManagedProfileChanged() = broadcastWorkProfileState()
         override fun onManagedProfileRemoved() {
             stateManager.broadcastState(
-                AxPlatformClient.FEATURE_WORK_PROFILE,
+                AxPlatformFeature.WORK_PROFILE,
                 Bundle().apply {
                     putBoolean("enabled", false)
                     putBoolean("active", false)
@@ -560,7 +616,7 @@ class AxPlatformObservers @Inject constructor(
         val hasProfile = managedProfileController.hasActiveProfile()
         val enabled = hasProfile && managedProfileController.isWorkModeEnabled
         stateManager.broadcastState(
-            AxPlatformClient.FEATURE_WORK_PROFILE,
+            AxPlatformFeature.WORK_PROFILE,
             Bundle().apply {
                 putBoolean("enabled", enabled)
                 putBoolean("active", enabled)
@@ -575,7 +631,7 @@ class AxPlatformObservers @Inject constructor(
         } catch (e: RemoteException) { false }
         val isEnabled = stateManager.getSecureBool(Settings.Secure.SCREENSAVER_ENABLED)
         stateManager.broadcastState(
-            AxPlatformClient.FEATURE_DREAM,
+            AxPlatformFeature.DREAM,
             Bundle().apply {
                 putBoolean("enabled", isEnabled)
                 putBoolean("active", isDreaming)
@@ -586,7 +642,7 @@ class AxPlatformObservers @Inject constructor(
     private val powerShareCallback = object : BatteryController.BatteryStateChangeCallback {
         override fun onReverseChanged(isReverse: Boolean, level: Int, name: String?) {
             stateManager.broadcastState(
-                AxPlatformClient.FEATURE_POWER_SHARE,
+                AxPlatformFeature.POWER_SHARE,
                 Bundle().apply {
                     putBoolean("enabled", isReverse)
                     putBoolean("active", isReverse)
@@ -638,6 +694,23 @@ class AxPlatformObservers @Inject constructor(
         }
     }
 
+    private val quickLookCallback = object : QuickLookClient.Callback {
+        override fun onClockDataChanged(data: ClockData) {
+            val cal = data.calendar
+            if (cal != CalendarSimpleData.EMPTY) {
+                stateManager.broadcastState(AxPlatformClient.KEY_CALENDAR, Bundle().apply {
+                    putLong("id", cal.id)
+                    putString("title", cal.title ?: "")
+                    putLong("startTime", cal.startTime)
+                    putLong("endTime", cal.endTime)
+                    putString("location", cal.location ?: "")
+                })
+            } else {
+                stateManager.broadcastState(AxPlatformClient.KEY_CALENDAR, Bundle())
+            }
+        }
+    }
+
     private val configurationListener = object : ConfigurationController.ConfigurationListener {
         override fun onConfigChanged(newConfig: Configuration) = exportConfigInfo(newConfig)
         override fun onDensityOrFontScaleChanged() = exportConfigInfo(null)
@@ -645,7 +718,7 @@ class AxPlatformObservers @Inject constructor(
             exportConfigInfo(null)
             val config = context.resources.configuration
             stateManager.broadcastBool(
-                AxPlatformClient.FEATURE_DARK_MODE,
+                AxPlatformFeature.DARK_MODE,
                 AxPlatformFeatureController.isDarkMode(config)
             )
         }
@@ -696,7 +769,7 @@ class AxPlatformObservers @Inject constructor(
     }
 
     private fun exportDozeInfo() {
-        val aodEnabled = stateManager.getState(AxPlatformClient.FEATURE_AOD).getBoolean("enabled", false)
+        val aodEnabled = stateManager.getState(AxPlatformFeature.AOD).getBoolean("enabled", false)
         stateManager.broadcastState(AxPlatformClient.KEY_DOZE, Bundle().apply {
             putBoolean("isDozing", statusBarStateController.isDozing)
             putBoolean("isPulsing", statusBarStateController.isPulsing)
@@ -708,14 +781,14 @@ class AxPlatformObservers @Inject constructor(
 
     private fun registerCaffeine() {
         stateManager.broadcastBool(
-            AxPlatformClient.FEATURE_CAFFEINE,
+            AxPlatformFeature.CAFFEINE,
             featureController.wakeLock.isHeld
         )
         broadcastDispatcher.registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 if (featureController.wakeLock.isHeld) {
                     featureController.wakeLock.release()
-                    stateManager.broadcastBool(AxPlatformClient.FEATURE_CAFFEINE, false)
+                    stateManager.broadcastBool(AxPlatformFeature.CAFFEINE, false)
                 }
             }
         }, IntentFilter(Intent.ACTION_SCREEN_OFF))
@@ -724,7 +797,7 @@ class AxPlatformObservers @Inject constructor(
     private val vpnCallback = object : SecurityController.SecurityControllerCallback {
         override fun onStateChanged() {
             stateManager.broadcastState(
-                AxPlatformClient.FEATURE_VPN,
+                AxPlatformFeature.VPN,
                 Bundle().apply {
                     val enabled = securityController.isVpnEnabled
                     putBoolean("enabled", enabled)
@@ -737,7 +810,7 @@ class AxPlatformObservers @Inject constructor(
 
     private fun registerVpn() {
         stateManager.broadcastState(
-            AxPlatformClient.FEATURE_VPN,
+            AxPlatformFeature.VPN,
             Bundle().apply {
                 val enabled = securityController.isVpnEnabled
                 putBoolean("enabled", enabled)
@@ -761,7 +834,7 @@ class AxPlatformObservers @Inject constructor(
         val connecting = devices.any { it.state == CastDevice.CastState.Connecting }
         val activeName = devices.firstOrNull { it.isCasting }?.name
         stateManager.broadcastState(
-            AxPlatformClient.FEATURE_CAST,
+            AxPlatformFeature.CAST,
             Bundle().apply {
                 putBoolean("enabled", active || connecting)
                 putBoolean("active", active)
@@ -774,11 +847,11 @@ class AxPlatformObservers @Inject constructor(
     private fun registerProfiles() {
         val profileManager = try {
             ProfileManager.getInstance(context)
-        } catch (e: Exception) { return }
+        } catch (_: Exception) { return }
 
         val activeProfile = profileManager.activeProfile
         stateManager.broadcastState(
-            AxPlatformClient.FEATURE_PROFILES,
+            AxPlatformFeature.PROFILES,
             Bundle().apply {
                 val enabled = profilesEnabled()
                 putBoolean("enabled", enabled)
@@ -795,7 +868,7 @@ class AxPlatformObservers @Inject constructor(
             override fun onReceive(ctx: Context, intent: Intent) {
                 val profile = profileManager.activeProfile
                 stateManager.broadcastState(
-                    AxPlatformClient.FEATURE_PROFILES,
+                    AxPlatformFeature.PROFILES,
                     Bundle().apply {
                         val enabled = profilesEnabled()
                         putBoolean("enabled", enabled)
@@ -813,7 +886,7 @@ class AxPlatformObservers @Inject constructor(
             override fun onChange(selfChange: Boolean) {
                 val profile = profileManager.activeProfile
                 stateManager.broadcastState(
-                    AxPlatformClient.FEATURE_PROFILES,
+                    AxPlatformFeature.PROFILES,
                     Bundle().apply {
                         val enabled = profilesEnabled()
                         putBoolean("enabled", enabled)
@@ -835,7 +908,7 @@ class AxPlatformObservers @Inject constructor(
     private fun registerSmartPixels() {
         stateManager.observeSecure(
             AxPlatformFeatureController.SETTING_SMART_PIXELS,
-            AxPlatformClient.FEATURE_SMART_PIXELS
+            AxPlatformFeature.SMART_PIXELS
         )
     }
 
@@ -855,7 +928,7 @@ class AxPlatformObservers @Inject constructor(
         val recording = screenRecordUxController.isRecording
         val starting = screenRecordUxController.isStarting
         stateManager.broadcastState(
-            AxPlatformClient.FEATURE_SCREEN_RECORD,
+            AxPlatformFeature.SCREEN_RECORD,
             Bundle().apply {
                 putBoolean("enabled", recording || starting)
                 putBoolean("active", recording)
@@ -890,8 +963,6 @@ class AxPlatformObservers @Inject constructor(
     }
 
     companion object {
-        private const val TAG = "AxPlatformObservers"
-
         private const val ACTION_AMBIENT_SHOW =
             "com.google.android.ambientindication.action.AMBIENT_INDICATION_SHOW"
         private const val ACTION_AMBIENT_EXPAND =

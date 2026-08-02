@@ -519,6 +519,7 @@ android_library {
         "smartspace-proto-lite-java",
         "axquicklook-client",
         "ax_platform_hooks",
+        "ax_compose",
         "//frameworks/libs/systemui:compilelib",
         "com.android.systemui.pods-api-aosp-handheld",
         "SystemUI-res",

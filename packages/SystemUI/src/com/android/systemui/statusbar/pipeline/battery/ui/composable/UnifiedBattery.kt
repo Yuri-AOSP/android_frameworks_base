@@ -277,6 +277,9 @@ class BatteryMeasurePolicy : MeasurePolicy {
 
         data object Cap : LayoutId()
 
+        /** A frame whose size comes from a themed drawable rather than the path spec. */
+        data class FrameThemed(val width: Float, val height: Float) : LayoutId()
+
         // We don't have to depend on the whole [BatteryGlyph] here, we just need to know the
         // size so we can scale and measure appropriately
         data class Attribution(val wrapped: BatteryGlyph) : LayoutId()
@@ -289,30 +292,36 @@ class BatteryMeasurePolicy : MeasurePolicy {
         val batteryFrame =
             measurables.fastFirstOrNull {
                 it.layoutId == LayoutId.Frame || it.layoutId == LayoutId.FrameCircle
+                    || it.layoutId is LayoutId.FrameThemed
             } ?: return layout(0, 0) {}
 
         // We will scale the entire battery icon based on the given height
         val scale = constraints.maxHeight / BatteryFrame.innerHeight
 
         val batterySize = BatteryFrame.bodyPathSpec.scaledSize(scale)
+        val frameW: Int
+        val frameH: Int
+        val themed = batteryFrame.layoutId as? LayoutId.FrameThemed
+        if (themed != null) {
+            val themedScale = constraints.maxHeight.toFloat() / themed.height
+            frameW = (themed.width * themedScale).roundToInt()
+            frameH = constraints.maxHeight
+        } else if (batteryFrame.layoutId == LayoutId.FrameCircle) {
+            frameW = batterySize.height.roundToInt()
+            frameH = batterySize.height.roundToInt()
+        } else {
+            frameW = batterySize.width.roundToInt()
+            frameH = batterySize.height.roundToInt()
+        }
+
         val batteryFramePlaceable =
             batteryFrame.measure(
                 constraints =
                     constraints.copy(
-                        minWidth =
-                            if (batteryFrame.layoutId == LayoutId.FrameCircle) {
-                                batterySize.height.roundToInt()
-                            } else {
-                                batterySize.width.roundToInt()
-                            },
-                        maxWidth =
-                            if (batteryFrame.layoutId == LayoutId.FrameCircle) {
-                                batterySize.height.roundToInt()
-                            } else {
-                                batterySize.width.roundToInt()
-                            },
-                        minHeight = batterySize.height.roundToInt(),
-                        maxHeight = batterySize.height.roundToInt(),
+                        minWidth = frameW,
+                        maxWidth = frameW,
+                        minHeight = frameH,
+                        maxHeight = frameH,
                     )
             )
 

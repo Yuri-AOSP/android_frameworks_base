@@ -140,7 +140,6 @@ object WifiViewBinder {
                         iconView.imageTintList = tintList
                         activityInView.imageTintList = tintList
                         activityOutView.imageTintList = tintList
-                        wifiStandardView.imageTintList = tintList
                         dotView.setDecorColor(tint)
                     }
                 }

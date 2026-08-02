@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableIntState
@@ -167,6 +168,7 @@ constructor(
                         mediaViewModelFactory = mediaViewModelFactory,
                         statusBarRegionSamplingViewModelFactory =
                             statusBarRegionSamplingViewModelFactory,
+                        axDynamicBarChipViewModel = axDynamicBarChipViewModel,
                         onViewCreated = andThen,
                         modifier = Modifier.sysUiResTagContainer(),
                     )
@@ -268,6 +270,7 @@ fun StatusBarRoot(
                         iconViewStore = iconViewStore,
                         appHandlesViewModel = appHandlesViewModel,
                         context = context,
+                        axDynamicBarChipViewModel = axDynamicBarChipViewModel,
                     )
                 }
 

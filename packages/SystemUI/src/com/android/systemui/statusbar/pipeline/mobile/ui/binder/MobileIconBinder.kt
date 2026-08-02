@@ -50,7 +50,6 @@ import com.android.systemui.statusbar.pipeline.shared.ui.binder.StatusBarViewBin
 import com.android.systemui.util.kotlin.pairwiseBy
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 data class MobileIconColors(@ColorInt val tint: Int, @ColorInt val contrast: Int)
@@ -221,38 +220,16 @@ object MobileIconBinder {
 
                     // Set the network type icon
                     launch {
-                        combine(
-                            viewModel.networkTypeIcon.distinctUntilChanged(),
-                            viewModel.smallMobileData.distinctUntilChanged()
-                        ) { dataTypeId, isSmall ->
-                            Pair(dataTypeId, isSmall)
-                        }.collect { (dataTypeId, isSmall) ->
+                        viewModel.networkTypeIcon.distinctUntilChanged().collect { dataTypeId ->
                             viewModel.verboseLogger?.logBinderReceivedNetworkTypeIcon(
                                 view,
                                 viewModel.subscriptionId,
                                 dataTypeId,
                             )
-                            if (dataTypeId != null) {
-                                if (isSmall) {
-                                    networkTypeSmallView?.let { smallView ->
-                                        IconViewBinder.bind(dataTypeId, smallView)
-                                    }
-                                    networkTypeView.setImageDrawable(null)
-                                } else {
-                                    IconViewBinder.bind(dataTypeId, networkTypeView)
-                                    networkTypeSmallView?.setImageDrawable(null)
-                                }
-                            } else {
-                                networkTypeView.setImageDrawable(null)
-                                networkTypeSmallView?.setImageDrawable(null)
-                            }
-
+                            dataTypeId?.let { IconViewBinder.bind(dataTypeId, networkTypeView) }
                             val prevVis = networkTypeContainer.visibility
                             networkTypeContainer.visibility =
-                                if (dataTypeId != null && !isSmall) VISIBLE else GONE
-
-                            networkTypeSmallView?.visibility =
-                                if (dataTypeId != null && isSmall) VISIBLE else GONE
+                                if (dataTypeId != null) VISIBLE else GONE
 
                             if (prevVis != networkTypeContainer.visibility) {
                                 view.requestLayout()
@@ -264,9 +241,6 @@ object MobileIconBinder {
                     launch {
                         viewModel.networkTypeBackground.collect { background ->
                             networkTypeContainer.setBackgroundResource(background?.resId ?: 0)
-
-                            val tint = ColorStateList.valueOf(iconTint.value.tint)
-                            networkTypeSmallView?.imageTintList = tint
 
                             // Tint will invert when this bit changes
                             if (background?.resId != null) {
@@ -281,27 +255,13 @@ object MobileIconBinder {
 
                     // Set the roaming indicator
                     launch {
-                        viewModel.isRoamingVisible.distinctUntilChanged().collect { isRoaming ->
+                        viewModel.roaming.distinctUntilChanged().collect { isRoaming ->
                             if (NewStatusBarIcons.isEnabled) {
                                 endSideRoamingView.isVisible = isRoaming
                             } else {
                                 roamingView.isVisible = isRoaming
                                 roamingSpace.isVisible = isRoaming
                             }
-                        }
-                    }
-
-                    // Set the roaming indicator (single SIM - end side)
-                    launch {
-                        viewModel.isRoamingVisible.distinctUntilChanged().collect { isRoaming ->
-                            endSideRoamingView.isVisible = isRoaming
-                        }
-                    }
-
-                    // Set the roaming indicator (single SIM - end side)
-                    launch {
-                        viewModel.isRoamingVisible.distinctUntilChanged().collect { isRoaming ->
-                            endSideRoamingView.isVisible = isRoaming
                         }
                     }
 

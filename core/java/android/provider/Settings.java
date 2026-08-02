@@ -5703,6 +5703,12 @@ public final class Settings {
         public static final String VOLUME_SLIDER_GRADIENT = "volume_slider_gradient";
 
         /**
+         * Gradient on QS tiles
+         * @hide
+         */
+        public static final String QS_TILE_GRADIENT = "qs_tile_gradient";
+
+        /**
          * @hide
          */
         public static final String WIFI_STANDARD_ICON = "wifi_standard_icon";

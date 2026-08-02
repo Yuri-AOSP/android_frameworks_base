@@ -14935,6 +14935,12 @@ public final class Settings {
         public static final String VOLUME_DIALOG_HAPTIC_FEEDBACK = "volume_dialog_haptic_feedback";
 
         /**
+         * Whether lockscreen smartspace is enabled.
+         * @hide
+         */
+        public static final String LOCKSCREEN_SMARTSPACE_ENABLED = "lockscreen_smartspace_enabled";
+
+        /**
          * Whether to enable DOZE only when charging
          * @hide
          */

@@ -244,11 +244,13 @@ object MobileIconBinder {
 
                             // Tint will invert when this bit changes
                             if (background?.resId != null) {
-                                networkTypeContainer.backgroundTintList = tint
+                                networkTypeContainer.backgroundTintList =
+                                    ColorStateList.valueOf(iconTint.value.tint)
                                 networkTypeView.imageTintList =
                                     ColorStateList.valueOf(iconTint.value.contrast)
                             } else {
-                                networkTypeView.imageTintList = tint
+                                networkTypeView.imageTintList =
+                                    ColorStateList.valueOf(iconTint.value.tint)
                             }
                         }
                     }

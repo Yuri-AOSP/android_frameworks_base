@@ -44,6 +44,7 @@ import static com.android.systemui.shared.system.QuickStepContract.addInterface;
 
 import android.annotation.FloatRange;
 import android.annotation.Nullable;
+import android.app.ActivityManager;
 import android.app.ActivityTaskManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -131,6 +132,7 @@ import com.android.systemui.statusbar.NotificationShadeWindowController;
 import com.android.systemui.statusbar.phone.StatusBarWindowCallback;
 import com.android.systemui.statusbar.policy.CallbackController;
 import com.android.systemui.unfold.progress.UnfoldTransitionProgressForwarder;
+import com.android.systemui.util.WallpaperController;
 import com.android.systemui.user.domain.interactor.HeadlessSystemUserMode;
 import com.android.wm.shell.back.BackAnimation;
 import com.android.wm.shell.shared.desktopmode.DesktopState;
@@ -175,6 +177,7 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
     private SysUiState mDefaultDisplaySysUIState;
     private final Handler mHandler;
     private final Lazy<NavigationBarController> mNavBarControllerLazy;
+    private final Lazy<WallpaperController> mWallpaperControllerLazy;
     private final ScreenPinningRequest mScreenPinningRequest;
     private final NotificationShadeWindowController mStatusBarWinController;
     private final Provider<SceneInteractor> mSceneInteractor;
@@ -536,6 +539,28 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
             });
         }
 
+        @Override
+        public void forceStopPackage(String packageName, int userId) {
+            verifyCallerAndClearCallingIdentityPostMain("forceStopPackage", () -> {
+                ActivityManager am = mContext.getSystemService(ActivityManager.class);
+                if (am != null) {
+                    am.forceStopPackageAsUser(packageName, userId);
+                }
+            });
+        }
+
+        @Override
+        public void setLauncherWallpaperZoom(float zoomOut) {
+            verifyCallerAndClearCallingIdentityPostMain("setLauncherWallpaperZoom", () ->
+                    mWallpaperControllerLazy.get().setLauncherAnimationZoom(zoomOut));
+        }
+
+        @Override
+        public void setLauncherDepthWallpaperZoom(float zoomOut) {
+            verifyCallerAndClearCallingIdentityPostMain("setLauncherDepthWallpaperZoom", () ->
+                    mWallpaperControllerLazy.get().setLauncherDepthZoom(zoomOut));
+        }
+
         private void onShadeExpansionGesture(MotionEvent event, String reason) {
             if (!SceneContainerFlag.isEnabled()) {
                 return;
@@ -816,7 +841,8 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
             ProcessWrapper processWrapper,
             DisplayRepository displayRepository,
             DesktopState desktopState,
-            HeadlessSystemUserMode headlessSystemUserMode
+            HeadlessSystemUserMode headlessSystemUserMode,
+            Lazy<WallpaperController> wallpaperControllerLazy
     ) {
         mHeadlessSystemUserMode = headlessSystemUserMode;
         // b/241601880: This component should only be running for primary users or
@@ -839,6 +865,7 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
         mShadeViewControllerLazy = shadeViewControllerLazy;
         mHandler = new Handler();
         mNavBarControllerLazy = navBarControllerLazy;
+        mWallpaperControllerLazy = wallpaperControllerLazy;
         mScreenPinningRequest = screenPinningRequest;
         mStatusBarWinController = statusBarWinController;
         mSceneInteractor = sceneInteractor;
@@ -1195,8 +1222,15 @@ public class LauncherProxyService implements CallbackController<LauncherProxyLis
         if (mLauncherProxy != null) {
             mLauncherProxy.asBinder().unlinkToDeath(mLauncherServiceDeathRcpt, 0);
             mLauncherProxy = null;
+            mHandler.post(this::clearLauncherWallpaperZoom);
             notifyConnectionChanged();
         }
+    }
+
+    private void clearLauncherWallpaperZoom() {
+        WallpaperController wallpaperController = mWallpaperControllerLazy.get();
+        wallpaperController.setLauncherAnimationZoom(0f);
+        wallpaperController.setLauncherDepthZoom(0f);
     }
 
     /**

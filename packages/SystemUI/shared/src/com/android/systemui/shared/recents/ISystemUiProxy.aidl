@@ -200,5 +200,20 @@ interface ISystemUiProxy {
      */
     oneway void onSleepEvent(in MotionEvent event) = 61;
 
-    // Next id = 62
+    /**
+     * Force stops the given package for the given user.
+     */
+    oneway void forceStopPackage(String packageName, int userId) = 62;
+
+    /**
+     * Sets how far the wallpaper is zoomed out by a launcher animation.
+     */
+    oneway void setLauncherWallpaperZoom(float zoomOut) = 63;
+
+    /**
+     * Sets how far the wallpaper is zoomed out by the launcher depth effect.
+     */
+    oneway void setLauncherDepthWallpaperZoom(float zoomOut) = 64;
+
+    // Next id = 65
 }

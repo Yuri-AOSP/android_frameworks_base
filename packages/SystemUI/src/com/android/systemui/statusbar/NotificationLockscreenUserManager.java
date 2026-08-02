@@ -130,6 +130,9 @@ public interface NotificationLockscreenUserManager {
      */
     void removeNotificationStateChangedListener(NotificationStateChangedListener listener);
 
+    /** Called when an app's lock state changed and notifications must be re-evaluated. */
+    default void onAppLockRefresh() {}
+
     /** Notified when the current user changes. */
     interface UserChangedListener {
         default void onUserChanged(int userId) {}

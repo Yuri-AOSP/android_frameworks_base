@@ -3046,6 +3046,15 @@ public final class Settings {
     public static final String ACTION_APP_PERMISSIONS_SETTINGS =
             "android.settings.APP_PERMISSIONS_SETTINGS";
 
+    /**
+     * Activity Action: Show private DNS settings.
+     *
+     * @hide
+     */
+    @SdkConstant(SdkConstantType.ACTIVITY_INTENT_ACTION)
+    public static final String ACTION_PRIVATE_DNS_SETTING =
+            "com.android.settings.PRIVATE_DNS_SETTINGS";
+
     // End of Intent actions for Settings
 
     /**
@@ -14939,6 +14948,20 @@ public final class Settings {
          * @hide
          */
         public static final String LOCKSCREEN_SMARTSPACE_ENABLED = "lockscreen_smartspace_enabled";
+
+        /**
+         * Whether a short-lived screen-off AOD peek is shown.
+         * @hide
+         */
+        @Readable
+        public static final String DOZE_PEEK = "doze_peek";
+
+        /**
+         * How long the screen-off AOD peek lasts, in seconds.
+         * @hide
+         */
+        @Readable
+        public static final String DOZE_PEEK_DURATION = "doze_peek_duration";
 
         /**
          * Whether to enable DOZE only when charging

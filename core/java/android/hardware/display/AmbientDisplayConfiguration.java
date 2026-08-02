@@ -41,6 +41,8 @@ import java.util.Map;
 @TestApi
 public class AmbientDisplayConfiguration {
     private static final String TAG = "AmbientDisplayConfig";
+    private static final int DEFAULT_DOZE_PEEK_DURATION_SECONDS = 5;
+
     private final Context mContext;
     private final boolean mAlwaysOnByDefault;
     private final boolean mPickupGestureEnabledByDefault;
@@ -286,6 +288,43 @@ public class AmbientDisplayConfiguration {
     /** @hide */
     public boolean ambientDisplayAvailable() {
         return !TextUtils.isEmpty(ambientDisplayComponent());
+    }
+
+    /**
+     * Returns if a short-lived screen-off AOD peek should be shown for the current user.
+     *
+     * @hide
+     */
+    public boolean screenOffPeekEnabled(int user) {
+        return boolSettingDefaultOff(Settings.Secure.DOZE_PEEK, user)
+                && ambientDisplayAvailable()
+                && !alwaysOnEnabled(user)
+                && !accessibilityInversionEnabled(user);
+    }
+
+    /**
+     * Returns the configured screen-off AOD peek duration in milliseconds.
+     *
+     * @hide
+     */
+    public long getScreenOffPeekDurationMillis(int user) {
+        return getScreenOffPeekDurationSeconds(user) * 1000L;
+    }
+
+    private int getScreenOffPeekDurationSeconds(int user) {
+        final int configuredDuration = Settings.Secure.getIntForUser(
+                mContext.getContentResolver(),
+                Settings.Secure.DOZE_PEEK_DURATION,
+                DEFAULT_DOZE_PEEK_DURATION_SECONDS,
+                user);
+        switch (configuredDuration) {
+            case 7:
+            case 10:
+                return configuredDuration;
+            case DEFAULT_DOZE_PEEK_DURATION_SECONDS:
+            default:
+                return DEFAULT_DOZE_PEEK_DURATION_SECONDS;
+        }
     }
 
     /** @hide */
